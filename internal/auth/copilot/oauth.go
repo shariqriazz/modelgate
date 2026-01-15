@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
+	"github.com/shariqriazz/modelgate/internal/config"
+	"github.com/shariqriazz/modelgate/internal/util"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -223,7 +223,7 @@ func (c *DeviceFlowClient) FetchUserInfo(ctx context.Context, accessToken string
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "CLIProxyAPI")
+	req.Header.Set("User-Agent", "ModelGate")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

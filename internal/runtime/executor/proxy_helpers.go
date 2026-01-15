@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	"github.com/shariqriazz/modelgate/internal/config"
+	modelgateauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/proxy"
 )
@@ -36,7 +36,7 @@ var (
 //
 // Returns:
 //   - *http.Client: An HTTP client with configured proxy or transport
-func newProxyAwareHTTPClient(ctx context.Context, cfg *config.Config, auth *cliproxyauth.Auth, timeout time.Duration) *http.Client {
+func newProxyAwareHTTPClient(ctx context.Context, cfg *config.Config, auth *modelgateauth.Auth, timeout time.Duration) *http.Client {
 	// Priority 1: Use auth.ProxyURL if configured
 	var proxyURL string
 	if auth != nil {
@@ -88,7 +88,7 @@ func newProxyAwareHTTPClient(ctx context.Context, cfg *config.Config, auth *clip
 	}
 
 	// Priority 3: Use RoundTripper from context (typically from RoundTripperFor)
-	if rt, ok := ctx.Value("cliproxy.roundtripper").(http.RoundTripper); ok && rt != nil {
+	if rt, ok := ctx.Value("modelgate.roundtripper").(http.RoundTripper); ok && rt != nil {
 		httpClient.Transport = rt
 	}
 

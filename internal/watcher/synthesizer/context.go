@@ -3,7 +3,7 @@ package synthesizer
 import (
 	"time"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
+	"github.com/shariqriazz/modelgate/internal/config"
 )
 
 // SynthesisContext provides the context needed for auth synthesis.

@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
+	"github.com/shariqriazz/modelgate/internal/config"
 	"gopkg.in/yaml.v3"
 
-	sdkAuth "github.com/router-for-me/CLIProxyAPI/v6/sdk/auth"
-	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	sdkAuth "github.com/shariqriazz/modelgate/sdk/auth"
+	coreauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
 )
 

@@ -9,8 +9,8 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/translator/gemini/common"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
+	"github.com/shariqriazz/modelgate/internal/translator/gemini/common"
+	"github.com/shariqriazz/modelgate/internal/util"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"

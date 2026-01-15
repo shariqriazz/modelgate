@@ -1,4 +1,4 @@
-// Package api exposes server option helpers for embedding CLIProxyAPI.
+// Package api exposes server option helpers for embedding ModelGate.
 //
 // It wraps internal server option types so external projects can configure the embedded
 // HTTP server without importing internal packages.
@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	internalapi "github.com/router-for-me/CLIProxyAPI/v6/internal/api"
-	"github.com/router-for-me/CLIProxyAPI/v6/sdk/api/handlers"
-	"github.com/router-for-me/CLIProxyAPI/v6/sdk/config"
-	"github.com/router-for-me/CLIProxyAPI/v6/sdk/logging"
+	internalapi "github.com/shariqriazz/modelgate/internal/api"
+	"github.com/shariqriazz/modelgate/sdk/api/handlers"
+	"github.com/shariqriazz/modelgate/sdk/config"
+	"github.com/shariqriazz/modelgate/sdk/logging"
 )
 
 // ServerOption customises HTTP server construction.

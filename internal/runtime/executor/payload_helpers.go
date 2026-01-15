@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
+	"github.com/shariqriazz/modelgate/internal/config"
+	"github.com/shariqriazz/modelgate/internal/util"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
+	"github.com/shariqriazz/modelgate/internal/registry"
+	"github.com/shariqriazz/modelgate/internal/util"
 	"github.com/tidwall/gjson"
 )
 

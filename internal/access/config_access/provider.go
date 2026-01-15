@@ -6,8 +6,8 @@ import (
 	"strings"
 	"sync"
 
-	sdkaccess "github.com/router-for-me/CLIProxyAPI/v6/sdk/access"
-	sdkconfig "github.com/router-for-me/CLIProxyAPI/v6/sdk/config"
+	sdkaccess "github.com/shariqriazz/modelgate/sdk/access"
+	sdkconfig "github.com/shariqriazz/modelgate/sdk/config"
 )
 
 var registerOnce sync.Once

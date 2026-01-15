@@ -22,13 +22,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
-	sdkAuth "github.com/router-for-me/CLIProxyAPI/v6/sdk/auth"
-	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
-	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/executor"
-	sdktranslator "github.com/router-for-me/CLIProxyAPI/v6/sdk/translator"
+	"github.com/shariqriazz/modelgate/internal/config"
+	"github.com/shariqriazz/modelgate/internal/registry"
+	"github.com/shariqriazz/modelgate/internal/util"
+	sdkAuth "github.com/shariqriazz/modelgate/sdk/auth"
+	modelgateauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
+	modelgateexecutor "github.com/shariqriazz/modelgate/sdk/cliproxy/executor"
+	sdktranslator "github.com/shariqriazz/modelgate/sdk/translator"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -86,7 +86,7 @@ func NewAntigravityExecutor(cfg *config.Config) *AntigravityExecutor {
 func (e *AntigravityExecutor) Identifier() string { return antigravityAuthType }
 
 // PrepareRequest injects Antigravity credentials into the outgoing HTTP request.
-func (e *AntigravityExecutor) PrepareRequest(req *http.Request, auth *cliproxyauth.Auth) error {
+func (e *AntigravityExecutor) PrepareRequest(req *http.Request, auth *modelgateauth.Auth) error {
 	if req == nil {
 		return nil
 	}
@@ -102,7 +102,7 @@ func (e *AntigravityExecutor) PrepareRequest(req *http.Request, auth *cliproxyau
 }
 
 // HttpRequest injects Antigravity credentials into the request and executes it.
-func (e *AntigravityExecutor) HttpRequest(ctx context.Context, auth *cliproxyauth.Auth, req *http.Request) (*http.Response, error) {
+func (e *AntigravityExecutor) HttpRequest(ctx context.Context, auth *modelgateauth.Auth, req *http.Request) (*http.Response, error) {
 	if req == nil {
 		return nil, fmt.Errorf("antigravity executor: request is nil")
 	}
@@ -118,7 +118,7 @@ func (e *AntigravityExecutor) HttpRequest(ctx context.Context, auth *cliproxyaut
 }
 
 // Execute performs a non-streaming request to the Antigravity API.
-func (e *AntigravityExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (resp cliproxyexecutor.Response, err error) {
+func (e *AntigravityExecutor) Execute(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (resp modelgateexecutor.Response, err error) {
 	isClaude := strings.Contains(strings.ToLower(req.Model), "claude")
 	if isClaude || strings.Contains(req.Model, "gemini-3-pro") {
 		return e.executeClaudeNonStream(ctx, auth, req, opts)
@@ -215,7 +215,7 @@ func (e *AntigravityExecutor) Execute(ctx context.Context, auth *cliproxyauth.Au
 		reporter.publish(ctx, parseAntigravityUsage(bodyBytes))
 		var param any
 		converted := sdktranslator.TranslateNonStream(ctx, to, from, req.Model, bytes.Clone(opts.OriginalRequest), translated, bodyBytes, &param)
-		resp = cliproxyexecutor.Response{Payload: []byte(converted)}
+		resp = modelgateexecutor.Response{Payload: []byte(converted)}
 		reporter.ensurePublished(ctx)
 		return resp, nil
 	}
@@ -238,7 +238,7 @@ func (e *AntigravityExecutor) Execute(ctx context.Context, auth *cliproxyauth.Au
 }
 
 // executeClaudeNonStream performs a claude non-streaming request to the Antigravity API.
-func (e *AntigravityExecutor) executeClaudeNonStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (resp cliproxyexecutor.Response, err error) {
+func (e *AntigravityExecutor) executeClaudeNonStream(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (resp modelgateexecutor.Response, err error) {
 	token, updatedAuth, errToken := e.ensureAccessToken(ctx, auth)
 	if errToken != nil {
 		return resp, errToken
@@ -339,7 +339,7 @@ func (e *AntigravityExecutor) executeClaudeNonStream(ctx context.Context, auth *
 			return resp, err
 		}
 
-		out := make(chan cliproxyexecutor.StreamChunk)
+		out := make(chan modelgateexecutor.StreamChunk)
 		go func(resp *http.Response) {
 			defer close(out)
 			defer func() {
@@ -366,12 +366,12 @@ func (e *AntigravityExecutor) executeClaudeNonStream(ctx context.Context, auth *
 					reporter.publish(ctx, detail)
 				}
 
-				out <- cliproxyexecutor.StreamChunk{Payload: payload}
+				out <- modelgateexecutor.StreamChunk{Payload: payload}
 			}
 			if errScan := scanner.Err(); errScan != nil {
 				recordAPIResponseError(ctx, e.cfg, errScan)
 				reporter.publishFailure(ctx)
-				out <- cliproxyexecutor.StreamChunk{Err: errScan}
+				out <- modelgateexecutor.StreamChunk{Err: errScan}
 			} else {
 				reporter.ensurePublished(ctx)
 			}
@@ -387,12 +387,12 @@ func (e *AntigravityExecutor) executeClaudeNonStream(ctx context.Context, auth *
 				_, _ = buffer.Write([]byte("\n"))
 			}
 		}
-		resp = cliproxyexecutor.Response{Payload: e.convertStreamToNonStream(buffer.Bytes())}
+		resp = modelgateexecutor.Response{Payload: e.convertStreamToNonStream(buffer.Bytes())}
 
 		reporter.publish(ctx, parseAntigravityUsage(resp.Payload))
 		var param any
 		converted := sdktranslator.TranslateNonStream(ctx, to, from, req.Model, bytes.Clone(opts.OriginalRequest), translated, resp.Payload, &param)
-		resp = cliproxyexecutor.Response{Payload: []byte(converted)}
+		resp = modelgateexecutor.Response{Payload: []byte(converted)}
 		reporter.ensurePublished(ctx)
 
 		return resp, nil
@@ -599,7 +599,7 @@ func (e *AntigravityExecutor) convertStreamToNonStream(stream []byte) []byte {
 
 // streamValidationResult holds the result of validating a stream's first chunks
 type streamValidationResult struct {
-	bufferedChunks []cliproxyexecutor.StreamChunk
+	bufferedChunks []modelgateexecutor.StreamChunk
 	scanner        *bufio.Scanner
 	resp           *http.Response
 	needsRetry     bool
@@ -622,7 +622,7 @@ func (e *AntigravityExecutor) validateStreamStart(
 ) streamValidationResult {
 	result := streamValidationResult{
 		resp:           resp,
-		bufferedChunks: make([]cliproxyexecutor.StreamChunk, 0, 8),
+		bufferedChunks: make([]modelgateexecutor.StreamChunk, 0, 8),
 	}
 
 	scanner := bufio.NewScanner(resp.Body)
@@ -654,7 +654,7 @@ func (e *AntigravityExecutor) validateStreamStart(
 				// Create a synthetic valid tool call response
 				syntheticChunk := createRepairedToolCallChunk([]byte(fixed), model)
 				if syntheticChunk != nil {
-					result.bufferedChunks = append(result.bufferedChunks, cliproxyexecutor.StreamChunk{Payload: syntheticChunk})
+					result.bufferedChunks = append(result.bufferedChunks, modelgateexecutor.StreamChunk{Payload: syntheticChunk})
 					contentChunkCount++
 				}
 			} else {
@@ -672,7 +672,7 @@ func (e *AntigravityExecutor) validateStreamStart(
 
 		chunks := sdktranslator.TranslateStream(ctx, to, from, model, bytes.Clone(originalRequest), bytes.Clone(translated), bytes.Clone(payload), param)
 		for _, chunk := range chunks {
-			result.bufferedChunks = append(result.bufferedChunks, cliproxyexecutor.StreamChunk{Payload: []byte(chunk)})
+			result.bufferedChunks = append(result.bufferedChunks, modelgateexecutor.StreamChunk{Payload: []byte(chunk)})
 			contentChunkCount++
 		}
 
@@ -744,7 +744,7 @@ func createRepairedToolCallChunk(repairedJSON []byte, model string) []byte {
 
 // ExecuteStream performs a streaming request to the Antigravity API.
 // Uses buffered validation to enable retry on empty responses, bare 429s, and malformed function calls.
-func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (stream <-chan cliproxyexecutor.StreamChunk, err error) {
+func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (stream <-chan modelgateexecutor.StreamChunk, err error) {
 	ctx = context.WithValue(ctx, "alt", "")
 
 	token, updatedAuth, errToken := e.ensureAccessToken(ctx, auth)
@@ -883,7 +883,7 @@ func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 			}
 
 			// Validation passed or max retries reached - return the stream
-			out := make(chan cliproxyexecutor.StreamChunk, len(validation.bufferedChunks)+16)
+			out := make(chan modelgateexecutor.StreamChunk, len(validation.bufferedChunks)+16)
 			stream = out
 
 			go func(v streamValidationResult, attemptNum int) {
@@ -919,7 +919,7 @@ func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 						if fixed, ok := attemptJSONRepair(malformedMsg); ok {
 							log.Infof("antigravity executor: repaired malformed JSON in-stream")
 							if syntheticChunk := createRepairedToolCallChunk([]byte(fixed), req.Model); syntheticChunk != nil {
-								out <- cliproxyexecutor.StreamChunk{Payload: syntheticChunk}
+								out <- modelgateexecutor.StreamChunk{Payload: syntheticChunk}
 								chunkCount++
 							}
 						}
@@ -933,20 +933,20 @@ func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 					chunks := sdktranslator.TranslateStream(ctx, to, from, req.Model, bytes.Clone(opts.OriginalRequest), translated, bytes.Clone(payload), &param)
 					for i := range chunks {
 						chunkCount++
-						out <- cliproxyexecutor.StreamChunk{Payload: []byte(chunks[i])}
+						out <- modelgateexecutor.StreamChunk{Payload: []byte(chunks[i])}
 					}
 				}
 
 				tail := sdktranslator.TranslateStream(ctx, to, from, req.Model, bytes.Clone(opts.OriginalRequest), translated, []byte("[DONE]"), &param)
 				for i := range tail {
 					chunkCount++
-					out <- cliproxyexecutor.StreamChunk{Payload: []byte(tail[i])}
+					out <- modelgateexecutor.StreamChunk{Payload: []byte(tail[i])}
 				}
 
 				if errScan := v.scanner.Err(); errScan != nil {
 					recordAPIResponseError(ctx, e.cfg, errScan)
 					reporter.publishFailure(ctx)
-					out <- cliproxyexecutor.StreamChunk{Err: errScan}
+					out <- modelgateexecutor.StreamChunk{Err: errScan}
 				} else {
 					if chunkCount == 0 {
 						log.Warnf("antigravity executor: stream completed with zero content chunks (attempt %d)", attemptNum+1)
@@ -986,7 +986,7 @@ func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 }
 
 // Refresh refreshes the authentication credentials using the refresh token.
-func (e *AntigravityExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*cliproxyauth.Auth, error) {
+func (e *AntigravityExecutor) Refresh(ctx context.Context, auth *modelgateauth.Auth) (*modelgateauth.Auth, error) {
 	if auth == nil {
 		return auth, nil
 	}
@@ -998,16 +998,16 @@ func (e *AntigravityExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Au
 }
 
 // CountTokens counts tokens for the given request using the Antigravity API.
-func (e *AntigravityExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
+func (e *AntigravityExecutor) CountTokens(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (modelgateexecutor.Response, error) {
 	token, updatedAuth, errToken := e.ensureAccessToken(ctx, auth)
 	if errToken != nil {
-		return cliproxyexecutor.Response{}, errToken
+		return modelgateexecutor.Response{}, errToken
 	}
 	if updatedAuth != nil {
 		auth = updatedAuth
 	}
 	if strings.TrimSpace(token) == "" {
-		return cliproxyexecutor.Response{}, statusErr{code: http.StatusUnauthorized, msg: "missing access token"}
+		return modelgateexecutor.Response{}, statusErr{code: http.StatusUnauthorized, msg: "missing access token"}
 	}
 
 	from := opts.SourceFormat
@@ -1054,7 +1054,7 @@ func (e *AntigravityExecutor) CountTokens(ctx context.Context, auth *cliproxyaut
 
 		httpReq, errReq := http.NewRequestWithContext(ctx, http.MethodPost, requestURL.String(), bytes.NewReader(payload))
 		if errReq != nil {
-			return cliproxyexecutor.Response{}, errReq
+			return modelgateexecutor.Response{}, errReq
 		}
 		httpReq.Header.Set("Content-Type", "application/json")
 		httpReq.Header.Set("Authorization", "Bearer "+token)
@@ -1080,7 +1080,7 @@ func (e *AntigravityExecutor) CountTokens(ctx context.Context, auth *cliproxyaut
 		if errDo != nil {
 			recordAPIResponseError(ctx, e.cfg, errDo)
 			if errors.Is(errDo, context.Canceled) || errors.Is(errDo, context.DeadlineExceeded) {
-				return cliproxyexecutor.Response{}, errDo
+				return modelgateexecutor.Response{}, errDo
 			}
 			lastStatus = 0
 			lastBody = nil
@@ -1089,7 +1089,7 @@ func (e *AntigravityExecutor) CountTokens(ctx context.Context, auth *cliproxyaut
 				log.Debugf("antigravity executor: request error on base url %s, retrying with fallback base url: %s", baseURL, baseURLs[idx+1])
 				continue
 			}
-			return cliproxyexecutor.Response{}, errDo
+			return modelgateexecutor.Response{}, errDo
 		}
 
 		recordAPIResponseMetadata(ctx, e.cfg, httpResp.StatusCode, httpResp.Header.Clone())
@@ -1099,14 +1099,14 @@ func (e *AntigravityExecutor) CountTokens(ctx context.Context, auth *cliproxyaut
 		}
 		if errRead != nil {
 			recordAPIResponseError(ctx, e.cfg, errRead)
-			return cliproxyexecutor.Response{}, errRead
+			return modelgateexecutor.Response{}, errRead
 		}
 		appendAPIResponseChunk(ctx, e.cfg, bodyBytes)
 
 		if httpResp.StatusCode >= http.StatusOK && httpResp.StatusCode < http.StatusMultipleChoices {
 			count := gjson.GetBytes(bodyBytes, "totalTokens").Int()
 			translated := sdktranslator.TranslateTokenCount(respCtx, to, from, count, bodyBytes)
-			return cliproxyexecutor.Response{Payload: []byte(translated)}, nil
+			return modelgateexecutor.Response{Payload: []byte(translated)}, nil
 		}
 
 		lastStatus = httpResp.StatusCode
@@ -1122,7 +1122,7 @@ func (e *AntigravityExecutor) CountTokens(ctx context.Context, auth *cliproxyaut
 				sErr.retryAfter = retryAfter
 			}
 		}
-		return cliproxyexecutor.Response{}, sErr
+		return modelgateexecutor.Response{}, sErr
 	}
 
 	switch {
@@ -1133,16 +1133,16 @@ func (e *AntigravityExecutor) CountTokens(ctx context.Context, auth *cliproxyaut
 				sErr.retryAfter = retryAfter
 			}
 		}
-		return cliproxyexecutor.Response{}, sErr
+		return modelgateexecutor.Response{}, sErr
 	case lastErr != nil:
-		return cliproxyexecutor.Response{}, lastErr
+		return modelgateexecutor.Response{}, lastErr
 	default:
-		return cliproxyexecutor.Response{}, statusErr{code: http.StatusServiceUnavailable, msg: "antigravity executor: no base url available"}
+		return modelgateexecutor.Response{}, statusErr{code: http.StatusServiceUnavailable, msg: "antigravity executor: no base url available"}
 	}
 }
 
 // FetchAntigravityModels retrieves available models using the supplied auth.
-func FetchAntigravityModels(ctx context.Context, auth *cliproxyauth.Auth, cfg *config.Config) []*registry.ModelInfo {
+func FetchAntigravityModels(ctx context.Context, auth *modelgateauth.Auth, cfg *config.Config) []*registry.ModelInfo {
 	exec := &AntigravityExecutor{cfg: cfg}
 	token, updatedAuth, errToken := exec.ensureAccessToken(ctx, auth)
 	if errToken != nil || token == "" {
@@ -1243,7 +1243,7 @@ func FetchAntigravityModels(ctx context.Context, auth *cliproxyauth.Auth, cfg *c
 	return nil
 }
 
-func (e *AntigravityExecutor) ensureAccessToken(ctx context.Context, auth *cliproxyauth.Auth) (string, *cliproxyauth.Auth, error) {
+func (e *AntigravityExecutor) ensureAccessToken(ctx context.Context, auth *modelgateauth.Auth) (string, *modelgateauth.Auth, error) {
 	if auth == nil {
 		return "", nil, statusErr{code: http.StatusUnauthorized, msg: "missing auth"}
 	}
@@ -1254,8 +1254,8 @@ func (e *AntigravityExecutor) ensureAccessToken(ctx context.Context, auth *clipr
 	}
 	refreshCtx := context.Background()
 	if ctx != nil {
-		if rt, ok := ctx.Value("cliproxy.roundtripper").(http.RoundTripper); ok && rt != nil {
-			refreshCtx = context.WithValue(refreshCtx, "cliproxy.roundtripper", rt)
+		if rt, ok := ctx.Value("modelgate.roundtripper").(http.RoundTripper); ok && rt != nil {
+			refreshCtx = context.WithValue(refreshCtx, "modelgate.roundtripper", rt)
 		}
 	}
 	updated, errRefresh := e.refreshToken(refreshCtx, auth.Clone())
@@ -1265,7 +1265,7 @@ func (e *AntigravityExecutor) ensureAccessToken(ctx context.Context, auth *clipr
 	return metaStringValue(updated.Metadata, "access_token"), updated, nil
 }
 
-func (e *AntigravityExecutor) refreshToken(ctx context.Context, auth *cliproxyauth.Auth) (*cliproxyauth.Auth, error) {
+func (e *AntigravityExecutor) refreshToken(ctx context.Context, auth *modelgateauth.Auth) (*modelgateauth.Auth, error) {
 	if auth == nil {
 		return nil, statusErr{code: http.StatusUnauthorized, msg: "missing auth"}
 	}
@@ -1342,7 +1342,7 @@ func (e *AntigravityExecutor) refreshToken(ctx context.Context, auth *cliproxyau
 	return auth, nil
 }
 
-func (e *AntigravityExecutor) ensureAntigravityProjectID(ctx context.Context, auth *cliproxyauth.Auth, accessToken string) error {
+func (e *AntigravityExecutor) ensureAntigravityProjectID(ctx context.Context, auth *modelgateauth.Auth, accessToken string) error {
 	if auth == nil {
 		return nil
 	}
@@ -1375,7 +1375,7 @@ func (e *AntigravityExecutor) ensureAntigravityProjectID(ctx context.Context, au
 	return nil
 }
 
-func (e *AntigravityExecutor) buildRequest(ctx context.Context, auth *cliproxyauth.Auth, token, modelName string, payload []byte, stream bool, alt, baseURL string) (*http.Request, error) {
+func (e *AntigravityExecutor) buildRequest(ctx context.Context, auth *modelgateauth.Auth, token, modelName string, payload []byte, stream bool, alt, baseURL string) (*http.Request, error) {
 	if token == "" {
 		return nil, statusErr{code: http.StatusUnauthorized, msg: "missing access token"}
 	}
@@ -1536,7 +1536,7 @@ func int64Value(value any) (int64, bool) {
 	return 0, false
 }
 
-func buildBaseURL(auth *cliproxyauth.Auth) string {
+func buildBaseURL(auth *modelgateauth.Auth) string {
 	if baseURLs := antigravityBaseURLFallbackOrder(auth); len(baseURLs) > 0 {
 		return baseURLs[0]
 	}
@@ -1554,7 +1554,7 @@ func resolveHost(base string) string {
 	return strings.TrimPrefix(strings.TrimPrefix(base, "https://"), "http://")
 }
 
-func resolveUserAgent(auth *cliproxyauth.Auth) string {
+func resolveUserAgent(auth *modelgateauth.Auth) string {
 	if auth != nil {
 		if auth.Attributes != nil {
 			if ua := strings.TrimSpace(auth.Attributes["user_agent"]); ua != "" {
@@ -1570,7 +1570,7 @@ func resolveUserAgent(auth *cliproxyauth.Auth) string {
 	return defaultAntigravityAgent
 }
 
-func antigravityBaseURLFallbackOrder(auth *cliproxyauth.Auth) []string {
+func antigravityBaseURLFallbackOrder(auth *modelgateauth.Auth) []string {
 	if base := resolveCustomAntigravityBaseURL(auth); base != "" {
 		return []string{base}
 	}
@@ -1581,7 +1581,7 @@ func antigravityBaseURLFallbackOrder(auth *cliproxyauth.Auth) []string {
 	}
 }
 
-func resolveCustomAntigravityBaseURL(auth *cliproxyauth.Auth) string {
+func resolveCustomAntigravityBaseURL(auth *modelgateauth.Auth) string {
 	if auth == nil {
 		return ""
 	}

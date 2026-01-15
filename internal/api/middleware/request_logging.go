@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/logging"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
+	"github.com/shariqriazz/modelgate/internal/logging"
+	"github.com/shariqriazz/modelgate/internal/util"
 )
 
 // RequestLoggingMiddleware creates a Gin middleware that logs HTTP requests and responses.

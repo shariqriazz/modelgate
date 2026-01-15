@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
-	iflowauth "github.com/router-for-me/CLIProxyAPI/v6/internal/auth/iflow"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
-	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
-	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/executor"
-	sdktranslator "github.com/router-for-me/CLIProxyAPI/v6/sdk/translator"
+	iflowauth "github.com/shariqriazz/modelgate/internal/auth/iflow"
+	"github.com/shariqriazz/modelgate/internal/config"
+	"github.com/shariqriazz/modelgate/internal/util"
+	modelgateauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
+	modelgateexecutor "github.com/shariqriazz/modelgate/sdk/cliproxy/executor"
+	sdktranslator "github.com/shariqriazz/modelgate/sdk/translator"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -38,7 +38,7 @@ func NewIFlowExecutor(cfg *config.Config) *IFlowExecutor { return &IFlowExecutor
 func (e *IFlowExecutor) Identifier() string { return "iflow" }
 
 // PrepareRequest injects iFlow credentials into the outgoing HTTP request.
-func (e *IFlowExecutor) PrepareRequest(req *http.Request, auth *cliproxyauth.Auth) error {
+func (e *IFlowExecutor) PrepareRequest(req *http.Request, auth *modelgateauth.Auth) error {
 	if req == nil {
 		return nil
 	}
@@ -50,7 +50,7 @@ func (e *IFlowExecutor) PrepareRequest(req *http.Request, auth *cliproxyauth.Aut
 }
 
 // HttpRequest injects iFlow credentials into the request and executes it.
-func (e *IFlowExecutor) HttpRequest(ctx context.Context, auth *cliproxyauth.Auth, req *http.Request) (*http.Response, error) {
+func (e *IFlowExecutor) HttpRequest(ctx context.Context, auth *modelgateauth.Auth, req *http.Request) (*http.Response, error) {
 	if req == nil {
 		return nil, fmt.Errorf("iflow executor: request is nil")
 	}
@@ -66,7 +66,7 @@ func (e *IFlowExecutor) HttpRequest(ctx context.Context, auth *cliproxyauth.Auth
 }
 
 // Execute performs a non-streaming chat completion request.
-func (e *IFlowExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (resp cliproxyexecutor.Response, err error) {
+func (e *IFlowExecutor) Execute(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (resp modelgateexecutor.Response, err error) {
 	apiKey, baseURL := iflowCreds(auth)
 	if strings.TrimSpace(apiKey) == "" {
 		err = fmt.Errorf("iflow executor: missing api key")
@@ -155,12 +155,12 @@ func (e *IFlowExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, re
 
 	var param any
 	out := sdktranslator.TranslateNonStream(ctx, to, from, req.Model, bytes.Clone(opts.OriginalRequest), body, data, &param)
-	resp = cliproxyexecutor.Response{Payload: []byte(out)}
+	resp = modelgateexecutor.Response{Payload: []byte(out)}
 	return resp, nil
 }
 
 // ExecuteStream performs a streaming chat completion request.
-func (e *IFlowExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (stream <-chan cliproxyexecutor.StreamChunk, err error) {
+func (e *IFlowExecutor) ExecuteStream(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (stream <-chan modelgateexecutor.StreamChunk, err error) {
 	apiKey, baseURL := iflowCreds(auth)
 	if strings.TrimSpace(apiKey) == "" {
 		err = fmt.Errorf("iflow executor: missing api key")
@@ -241,7 +241,7 @@ func (e *IFlowExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Au
 		return nil, err
 	}
 
-	out := make(chan cliproxyexecutor.StreamChunk)
+	out := make(chan modelgateexecutor.StreamChunk)
 	stream = out
 	go func() {
 		defer close(out)
@@ -262,13 +262,13 @@ func (e *IFlowExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Au
 			}
 			chunks := sdktranslator.TranslateStream(ctx, to, from, req.Model, bytes.Clone(opts.OriginalRequest), body, bytes.Clone(line), &param)
 			for i := range chunks {
-				out <- cliproxyexecutor.StreamChunk{Payload: []byte(chunks[i])}
+				out <- modelgateexecutor.StreamChunk{Payload: []byte(chunks[i])}
 			}
 		}
 		if errScan := scanner.Err(); errScan != nil {
 			recordAPIResponseError(ctx, e.cfg, errScan)
 			reporter.publishFailure(ctx)
-			out <- cliproxyexecutor.StreamChunk{Err: errScan}
+			out <- modelgateexecutor.StreamChunk{Err: errScan}
 		}
 		// Guarantee a usage record exists even if the stream never emitted usage data.
 		reporter.ensurePublished(ctx)
@@ -277,28 +277,28 @@ func (e *IFlowExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Au
 	return stream, nil
 }
 
-func (e *IFlowExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
+func (e *IFlowExecutor) CountTokens(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (modelgateexecutor.Response, error) {
 	from := opts.SourceFormat
 	to := sdktranslator.FromString("openai")
 	body := sdktranslator.TranslateRequest(from, to, req.Model, bytes.Clone(req.Payload), false)
 
 	enc, err := tokenizerForModel(req.Model)
 	if err != nil {
-		return cliproxyexecutor.Response{}, fmt.Errorf("iflow executor: tokenizer init failed: %w", err)
+		return modelgateexecutor.Response{}, fmt.Errorf("iflow executor: tokenizer init failed: %w", err)
 	}
 
 	count, err := countOpenAIChatTokens(enc, body)
 	if err != nil {
-		return cliproxyexecutor.Response{}, fmt.Errorf("iflow executor: token counting failed: %w", err)
+		return modelgateexecutor.Response{}, fmt.Errorf("iflow executor: token counting failed: %w", err)
 	}
 
 	usageJSON := buildOpenAIUsageJSON(count)
 	translated := sdktranslator.TranslateTokenCount(ctx, to, from, count, usageJSON)
-	return cliproxyexecutor.Response{Payload: []byte(translated)}, nil
+	return modelgateexecutor.Response{Payload: []byte(translated)}, nil
 }
 
 // Refresh refreshes OAuth tokens or cookie-based API keys and updates the stored API key.
-func (e *IFlowExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*cliproxyauth.Auth, error) {
+func (e *IFlowExecutor) Refresh(ctx context.Context, auth *modelgateauth.Auth) (*modelgateauth.Auth, error) {
 	log.Debugf("iflow executor: refresh called")
 	if auth == nil {
 		return nil, fmt.Errorf("iflow executor: auth is nil")
@@ -326,7 +326,7 @@ func (e *IFlowExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*
 }
 
 // refreshCookieBased refreshes API key using browser cookie
-func (e *IFlowExecutor) refreshCookieBased(ctx context.Context, auth *cliproxyauth.Auth, cookie, email string) (*cliproxyauth.Auth, error) {
+func (e *IFlowExecutor) refreshCookieBased(ctx context.Context, auth *modelgateauth.Auth, cookie, email string) (*modelgateauth.Auth, error) {
 	log.Debugf("iflow executor: checking refresh need for cookie-based API key for user: %s", email)
 
 	// Get current expiry time from metadata
@@ -377,7 +377,7 @@ func (e *IFlowExecutor) refreshCookieBased(ctx context.Context, auth *cliproxyau
 }
 
 // refreshOAuthBased refreshes tokens using OAuth refresh token
-func (e *IFlowExecutor) refreshOAuthBased(ctx context.Context, auth *cliproxyauth.Auth) (*cliproxyauth.Auth, error) {
+func (e *IFlowExecutor) refreshOAuthBased(ctx context.Context, auth *modelgateauth.Auth) (*modelgateauth.Auth, error) {
 	refreshToken := ""
 	oldAccessToken := ""
 	if auth.Metadata != nil {
@@ -442,7 +442,7 @@ func applyIFlowHeaders(r *http.Request, apiKey string, stream bool) {
 	}
 }
 
-func iflowCreds(a *cliproxyauth.Auth) (apiKey, baseURL string) {
+func iflowCreds(a *modelgateauth.Auth) (apiKey, baseURL string) {
 	if a == nil {
 		return "", ""
 	}

@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	qwenauth "github.com/router-for-me/CLIProxyAPI/v6/internal/auth/qwen"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
-	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/executor"
-	sdktranslator "github.com/router-for-me/CLIProxyAPI/v6/sdk/translator"
+	qwenauth "github.com/shariqriazz/modelgate/internal/auth/qwen"
+	"github.com/shariqriazz/modelgate/internal/config"
+	modelgateauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
+	modelgateexecutor "github.com/shariqriazz/modelgate/sdk/cliproxy/executor"
+	sdktranslator "github.com/shariqriazz/modelgate/sdk/translator"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -37,7 +37,7 @@ func NewQwenExecutor(cfg *config.Config) *QwenExecutor { return &QwenExecutor{cf
 func (e *QwenExecutor) Identifier() string { return "qwen" }
 
 // PrepareRequest injects Qwen credentials into the outgoing HTTP request.
-func (e *QwenExecutor) PrepareRequest(req *http.Request, auth *cliproxyauth.Auth) error {
+func (e *QwenExecutor) PrepareRequest(req *http.Request, auth *modelgateauth.Auth) error {
 	if req == nil {
 		return nil
 	}
@@ -49,7 +49,7 @@ func (e *QwenExecutor) PrepareRequest(req *http.Request, auth *cliproxyauth.Auth
 }
 
 // HttpRequest injects Qwen credentials into the request and executes it.
-func (e *QwenExecutor) HttpRequest(ctx context.Context, auth *cliproxyauth.Auth, req *http.Request) (*http.Response, error) {
+func (e *QwenExecutor) HttpRequest(ctx context.Context, auth *modelgateauth.Auth, req *http.Request) (*http.Response, error) {
 	if req == nil {
 		return nil, fmt.Errorf("qwen executor: request is nil")
 	}
@@ -64,7 +64,7 @@ func (e *QwenExecutor) HttpRequest(ctx context.Context, auth *cliproxyauth.Auth,
 	return httpClient.Do(httpReq)
 }
 
-func (e *QwenExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (resp cliproxyexecutor.Response, err error) {
+func (e *QwenExecutor) Execute(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (resp modelgateexecutor.Response, err error) {
 	token, baseURL := qwenCreds(auth)
 
 	if baseURL == "" {
@@ -141,11 +141,11 @@ func (e *QwenExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, req
 	reporter.publish(ctx, parseOpenAIUsage(data))
 	var param any
 	out := sdktranslator.TranslateNonStream(ctx, to, from, req.Model, bytes.Clone(opts.OriginalRequest), body, data, &param)
-	resp = cliproxyexecutor.Response{Payload: []byte(out)}
+	resp = modelgateexecutor.Response{Payload: []byte(out)}
 	return resp, nil
 }
 
-func (e *QwenExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (stream <-chan cliproxyexecutor.StreamChunk, err error) {
+func (e *QwenExecutor) ExecuteStream(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (stream <-chan modelgateexecutor.StreamChunk, err error) {
 	token, baseURL := qwenCreds(auth)
 
 	if baseURL == "" {
@@ -219,7 +219,7 @@ func (e *QwenExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Aut
 		err = statusErr{code: httpResp.StatusCode, msg: string(b)}
 		return nil, err
 	}
-	out := make(chan cliproxyexecutor.StreamChunk)
+	out := make(chan modelgateexecutor.StreamChunk)
 	stream = out
 	go func() {
 		defer close(out)
@@ -239,23 +239,23 @@ func (e *QwenExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Aut
 			}
 			chunks := sdktranslator.TranslateStream(ctx, to, from, req.Model, bytes.Clone(opts.OriginalRequest), body, bytes.Clone(line), &param)
 			for i := range chunks {
-				out <- cliproxyexecutor.StreamChunk{Payload: []byte(chunks[i])}
+				out <- modelgateexecutor.StreamChunk{Payload: []byte(chunks[i])}
 			}
 		}
 		doneChunks := sdktranslator.TranslateStream(ctx, to, from, req.Model, bytes.Clone(opts.OriginalRequest), body, bytes.Clone([]byte("[DONE]")), &param)
 		for i := range doneChunks {
-			out <- cliproxyexecutor.StreamChunk{Payload: []byte(doneChunks[i])}
+			out <- modelgateexecutor.StreamChunk{Payload: []byte(doneChunks[i])}
 		}
 		if errScan := scanner.Err(); errScan != nil {
 			recordAPIResponseError(ctx, e.cfg, errScan)
 			reporter.publishFailure(ctx)
-			out <- cliproxyexecutor.StreamChunk{Err: errScan}
+			out <- modelgateexecutor.StreamChunk{Err: errScan}
 		}
 	}()
 	return stream, nil
 }
 
-func (e *QwenExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
+func (e *QwenExecutor) CountTokens(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (modelgateexecutor.Response, error) {
 	from := opts.SourceFormat
 	to := sdktranslator.FromString("openai")
 	body := sdktranslator.TranslateRequest(from, to, req.Model, bytes.Clone(req.Payload), false)
@@ -267,20 +267,20 @@ func (e *QwenExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Auth,
 
 	enc, err := tokenizerForModel(modelName)
 	if err != nil {
-		return cliproxyexecutor.Response{}, fmt.Errorf("qwen executor: tokenizer init failed: %w", err)
+		return modelgateexecutor.Response{}, fmt.Errorf("qwen executor: tokenizer init failed: %w", err)
 	}
 
 	count, err := countOpenAIChatTokens(enc, body)
 	if err != nil {
-		return cliproxyexecutor.Response{}, fmt.Errorf("qwen executor: token counting failed: %w", err)
+		return modelgateexecutor.Response{}, fmt.Errorf("qwen executor: token counting failed: %w", err)
 	}
 
 	usageJSON := buildOpenAIUsageJSON(count)
 	translated := sdktranslator.TranslateTokenCount(ctx, to, from, count, usageJSON)
-	return cliproxyexecutor.Response{Payload: []byte(translated)}, nil
+	return modelgateexecutor.Response{Payload: []byte(translated)}, nil
 }
 
-func (e *QwenExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*cliproxyauth.Auth, error) {
+func (e *QwenExecutor) Refresh(ctx context.Context, auth *modelgateauth.Auth) (*modelgateauth.Auth, error) {
 	log.Debugf("qwen executor: refresh called")
 	if auth == nil {
 		return nil, fmt.Errorf("qwen executor: auth is nil")
@@ -333,7 +333,7 @@ func applyQwenHeaders(r *http.Request, token string, stream bool) {
 	r.Header.Set("Accept", "application/json")
 }
 
-func qwenCreds(a *cliproxyauth.Auth) (token, baseURL string) {
+func qwenCreds(a *modelgateauth.Auth) (token, baseURL string) {
 	if a == nil {
 		return "", ""
 	}

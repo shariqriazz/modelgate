@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/runtime/geminicli"
-	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	"github.com/shariqriazz/modelgate/internal/runtime/geminicli"
+	coreauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/proxy"
 	"golang.org/x/oauth2"
@@ -105,7 +105,7 @@ type apiCallResponse struct {
 //	curl -sS -X POST "http://127.0.0.1:8317/v0/management/api-call" \
 //	  -H "Authorization: Bearer 831227" \
 //	  -H "Content-Type: application/json" \
-//	  -d '{"auth_index":"<AUTH_INDEX>","method":"POST","url":"https://api.example.com/v1/fetchAvailableModels","header":{"Authorization":"Bearer $TOKEN$","Content-Type":"application/json","User-Agent":"cliproxyapi"},"data":"{}"}'
+//	  -d '{"auth_index":"<AUTH_INDEX>","method":"POST","url":"https://api.example.com/v1/fetchAvailableModels","header":{"Authorization":"Bearer $TOKEN$","Content-Type":"application/json","User-Agent":"modelgateapi"},"data":"{}"}'
 func (h *Handler) APICall(c *gin.Context) {
 	var body apiCallRequest
 	if errBindJSON := c.ShouldBindJSON(&body); errBindJSON != nil {

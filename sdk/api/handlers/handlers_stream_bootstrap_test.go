@@ -6,10 +6,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
-	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
-	coreexecutor "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/executor"
-	sdkconfig "github.com/router-for-me/CLIProxyAPI/v6/sdk/config"
+	"github.com/shariqriazz/modelgate/internal/registry"
+	coreauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
+	coreexecutor "github.com/shariqriazz/modelgate/sdk/cliproxy/executor"
+	sdkconfig "github.com/shariqriazz/modelgate/sdk/config"
 )
 
 type failOnceStreamExecutor struct {

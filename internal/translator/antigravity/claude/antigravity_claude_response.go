@@ -14,7 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/cache"
+	"github.com/shariqriazz/modelgate/internal/cache"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/tidwall/gjson"

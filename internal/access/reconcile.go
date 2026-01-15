@@ -6,9 +6,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	sdkaccess "github.com/router-for-me/CLIProxyAPI/v6/sdk/access"
-	sdkConfig "github.com/router-for-me/CLIProxyAPI/v6/sdk/config"
+	"github.com/shariqriazz/modelgate/internal/config"
+	sdkaccess "github.com/shariqriazz/modelgate/sdk/access"
+	sdkConfig "github.com/shariqriazz/modelgate/sdk/config"
 	log "github.com/sirupsen/logrus"
 )
 

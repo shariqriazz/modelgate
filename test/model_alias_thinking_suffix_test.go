@@ -3,8 +3,8 @@ package test
 import (
 	"testing"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/runtime/executor"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
+	"github.com/shariqriazz/modelgate/internal/runtime/executor"
+	"github.com/shariqriazz/modelgate/internal/util"
 	"github.com/tidwall/gjson"
 )
 

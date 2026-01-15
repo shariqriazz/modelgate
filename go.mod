@@ -1,4 +1,4 @@
-module github.com/router-for-me/CLIProxyAPI/v6
+module github.com/shariqriazz/modelgate
 
 go 1.24.0
 

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	"github.com/shariqriazz/modelgate/internal/config"
+	coreauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
 )
 
 // Manager aggregates authenticators and coordinates persistence via a token store.
@@ -47,7 +47,7 @@ func (m *Manager) SetStore(store coreauth.Store) {
 func (m *Manager) Login(ctx context.Context, provider string, cfg *config.Config, opts *LoginOptions) (*coreauth.Auth, string, error) {
 	auth, ok := m.authenticators[provider]
 	if !ok {
-		return nil, "", fmt.Errorf("cliproxy auth: authenticator %s not registered", provider)
+		return nil, "", fmt.Errorf("modelgate auth: authenticator %s not registered", provider)
 	}
 
 	record, err := auth.Login(ctx, cfg, opts)
@@ -55,7 +55,7 @@ func (m *Manager) Login(ctx context.Context, provider string, cfg *config.Config
 		return nil, "", err
 	}
 	if record == nil {
-		return nil, "", fmt.Errorf("cliproxy auth: authenticator %s returned nil record", provider)
+		return nil, "", fmt.Errorf("modelgate auth: authenticator %s returned nil record", provider)
 	}
 
 	if m.store == nil {

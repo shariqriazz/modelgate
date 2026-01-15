@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	copilotauth "github.com/router-for-me/CLIProxyAPI/v6/internal/auth/copilot"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
-	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/executor"
-	sdktranslator "github.com/router-for-me/CLIProxyAPI/v6/sdk/translator"
+	copilotauth "github.com/shariqriazz/modelgate/internal/auth/copilot"
+	"github.com/shariqriazz/modelgate/internal/config"
+	modelgateauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
+	modelgateexecutor "github.com/shariqriazz/modelgate/sdk/cliproxy/executor"
+	sdktranslator "github.com/shariqriazz/modelgate/sdk/translator"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/sjson"
 )
@@ -63,7 +63,7 @@ func NewGitHubCopilotExecutor(cfg *config.Config) *GitHubCopilotExecutor {
 func (e *GitHubCopilotExecutor) Identifier() string { return githubCopilotAuthType }
 
 // PrepareRequest implements ProviderExecutor.
-func (e *GitHubCopilotExecutor) PrepareRequest(req *http.Request, auth *cliproxyauth.Auth) error {
+func (e *GitHubCopilotExecutor) PrepareRequest(req *http.Request, auth *modelgateauth.Auth) error {
 	if req == nil {
 		return nil
 	}
@@ -80,7 +80,7 @@ func (e *GitHubCopilotExecutor) PrepareRequest(req *http.Request, auth *cliproxy
 }
 
 // HttpRequest injects GitHub Copilot credentials into the request and executes it.
-func (e *GitHubCopilotExecutor) HttpRequest(ctx context.Context, auth *cliproxyauth.Auth, req *http.Request) (*http.Response, error) {
+func (e *GitHubCopilotExecutor) HttpRequest(ctx context.Context, auth *modelgateauth.Auth, req *http.Request) (*http.Response, error) {
 	if req == nil {
 		return nil, fmt.Errorf("github-copilot executor: request is nil")
 	}
@@ -96,7 +96,7 @@ func (e *GitHubCopilotExecutor) HttpRequest(ctx context.Context, auth *cliproxya
 }
 
 // Execute handles non-streaming requests to GitHub Copilot.
-func (e *GitHubCopilotExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (resp cliproxyexecutor.Response, err error) {
+func (e *GitHubCopilotExecutor) Execute(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (resp modelgateexecutor.Response, err error) {
 	apiToken, errToken := e.ensureAPIToken(ctx, auth)
 	if errToken != nil {
 		return resp, errToken
@@ -178,13 +178,13 @@ func (e *GitHubCopilotExecutor) Execute(ctx context.Context, auth *cliproxyauth.
 
 	var param any
 	converted := sdktranslator.TranslateNonStream(ctx, to, from, req.Model, bytes.Clone(opts.OriginalRequest), body, data, &param)
-	resp = cliproxyexecutor.Response{Payload: []byte(converted)}
+	resp = modelgateexecutor.Response{Payload: []byte(converted)}
 	reporter.ensurePublished(ctx)
 	return resp, nil
 }
 
 // ExecuteStream handles streaming requests to GitHub Copilot.
-func (e *GitHubCopilotExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (stream <-chan cliproxyexecutor.StreamChunk, err error) {
+func (e *GitHubCopilotExecutor) ExecuteStream(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (stream <-chan modelgateexecutor.StreamChunk, err error) {
 	apiToken, errToken := e.ensureAPIToken(ctx, auth)
 	if errToken != nil {
 		return nil, errToken
@@ -256,7 +256,7 @@ func (e *GitHubCopilotExecutor) ExecuteStream(ctx context.Context, auth *cliprox
 		return nil, err
 	}
 
-	out := make(chan cliproxyexecutor.StreamChunk)
+	out := make(chan modelgateexecutor.StreamChunk)
 	stream = out
 
 	go func() {
@@ -288,14 +288,14 @@ func (e *GitHubCopilotExecutor) ExecuteStream(ctx context.Context, auth *cliprox
 
 			chunks := sdktranslator.TranslateStream(ctx, to, from, req.Model, bytes.Clone(opts.OriginalRequest), body, bytes.Clone(line), &param)
 			for i := range chunks {
-				out <- cliproxyexecutor.StreamChunk{Payload: []byte(chunks[i])}
+				out <- modelgateexecutor.StreamChunk{Payload: []byte(chunks[i])}
 			}
 		}
 
 		if errScan := scanner.Err(); errScan != nil {
 			recordAPIResponseError(ctx, e.cfg, errScan)
 			reporter.publishFailure(ctx)
-			out <- cliproxyexecutor.StreamChunk{Err: errScan}
+			out <- modelgateexecutor.StreamChunk{Err: errScan}
 		} else {
 			reporter.ensurePublished(ctx)
 		}
@@ -305,13 +305,13 @@ func (e *GitHubCopilotExecutor) ExecuteStream(ctx context.Context, auth *cliprox
 }
 
 // CountTokens is not supported for GitHub Copilot.
-func (e *GitHubCopilotExecutor) CountTokens(_ context.Context, _ *cliproxyauth.Auth, _ cliproxyexecutor.Request, _ cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
-	return cliproxyexecutor.Response{}, statusErr{code: http.StatusNotImplemented, msg: "count tokens not supported for github-copilot"}
+func (e *GitHubCopilotExecutor) CountTokens(_ context.Context, _ *modelgateauth.Auth, _ modelgateexecutor.Request, _ modelgateexecutor.Options) (modelgateexecutor.Response, error) {
+	return modelgateexecutor.Response{}, statusErr{code: http.StatusNotImplemented, msg: "count tokens not supported for github-copilot"}
 }
 
 // Refresh validates the GitHub token is still working.
 // GitHub OAuth tokens don't expire traditionally, so we just validate.
-func (e *GitHubCopilotExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*cliproxyauth.Auth, error) {
+func (e *GitHubCopilotExecutor) Refresh(ctx context.Context, auth *modelgateauth.Auth) (*modelgateauth.Auth, error) {
 	if auth == nil {
 		return nil, statusErr{code: http.StatusUnauthorized, msg: "missing auth"}
 	}
@@ -333,7 +333,7 @@ func (e *GitHubCopilotExecutor) Refresh(ctx context.Context, auth *cliproxyauth.
 }
 
 // ensureAPIToken gets or refreshes the Copilot API token.
-func (e *GitHubCopilotExecutor) ensureAPIToken(ctx context.Context, auth *cliproxyauth.Auth) (string, error) {
+func (e *GitHubCopilotExecutor) ensureAPIToken(ctx context.Context, auth *modelgateauth.Auth) (string, error) {
 	if auth == nil {
 		return "", statusErr{code: http.StatusUnauthorized, msg: "missing auth"}
 	}

@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	sdkAuth "github.com/router-for-me/CLIProxyAPI/v6/sdk/auth"
+	sdkAuth "github.com/shariqriazz/modelgate/sdk/auth"
 )
 
 // newAuthManager creates a new authentication manager instance with all supported

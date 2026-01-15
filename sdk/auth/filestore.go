@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	modelgateauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
 )
 
 // FileTokenStore persists token records and auth metadata using the filesystem as backing storage.
@@ -36,7 +36,7 @@ func (s *FileTokenStore) SetBaseDir(dir string) {
 }
 
 // Save persists token storage and metadata to the resolved auth file path.
-func (s *FileTokenStore) Save(ctx context.Context, auth *cliproxyauth.Auth) (string, error) {
+func (s *FileTokenStore) Save(ctx context.Context, auth *modelgateauth.Auth) (string, error) {
 	if auth == nil {
 		return "", fmt.Errorf("auth filestore: auth is nil")
 	}
@@ -110,12 +110,12 @@ func (s *FileTokenStore) Save(ctx context.Context, auth *cliproxyauth.Auth) (str
 }
 
 // List enumerates all auth JSON files under the configured directory.
-func (s *FileTokenStore) List(ctx context.Context) ([]*cliproxyauth.Auth, error) {
+func (s *FileTokenStore) List(ctx context.Context) ([]*modelgateauth.Auth, error) {
 	dir := s.baseDirSnapshot()
 	if dir == "" {
 		return nil, fmt.Errorf("auth filestore: directory not configured")
 	}
-	entries := make([]*cliproxyauth.Auth, 0)
+	entries := make([]*modelgateauth.Auth, 0)
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -168,7 +168,7 @@ func (s *FileTokenStore) resolveDeletePath(id string) (string, error) {
 	return filepath.Join(dir, id), nil
 }
 
-func (s *FileTokenStore) readAuthFile(path, baseDir string) (*cliproxyauth.Auth, error) {
+func (s *FileTokenStore) readAuthFile(path, baseDir string) (*modelgateauth.Auth, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read file: %w", err)
@@ -228,12 +228,12 @@ func (s *FileTokenStore) readAuthFile(path, baseDir string) (*cliproxyauth.Auth,
 		return nil, fmt.Errorf("stat file: %w", err)
 	}
 	id := s.idFor(path, baseDir)
-	auth := &cliproxyauth.Auth{
+	auth := &modelgateauth.Auth{
 		ID:               id,
 		Provider:         provider,
 		FileName:         id,
 		Label:            s.labelFor(metadata),
-		Status:           cliproxyauth.StatusActive,
+		Status:           modelgateauth.StatusActive,
 		Attributes:       map[string]string{"path": path},
 		Metadata:         metadata,
 		CreatedAt:        info.ModTime(),
@@ -258,7 +258,7 @@ func (s *FileTokenStore) idFor(path, baseDir string) string {
 	return rel
 }
 
-func (s *FileTokenStore) resolveAuthPath(auth *cliproxyauth.Auth) (string, error) {
+func (s *FileTokenStore) resolveAuthPath(auth *modelgateauth.Auth) (string, error) {
 	if auth == nil {
 		return "", fmt.Errorf("auth filestore: auth is nil")
 	}

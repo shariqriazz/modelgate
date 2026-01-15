@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/router-for-me/CLIProxyAPI/v6/internal/translator"
+	_ "github.com/shariqriazz/modelgate/internal/translator"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/runtime/executor"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
-	sdktranslator "github.com/router-for-me/CLIProxyAPI/v6/sdk/translator"
+	"github.com/shariqriazz/modelgate/internal/registry"
+	"github.com/shariqriazz/modelgate/internal/runtime/executor"
+	"github.com/shariqriazz/modelgate/internal/util"
+	sdktranslator "github.com/shariqriazz/modelgate/sdk/translator"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )

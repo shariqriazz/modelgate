@@ -17,9 +17,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
-	sdkconfig "github.com/router-for-me/CLIProxyAPI/v6/sdk/config"
+	"github.com/shariqriazz/modelgate/internal/config"
+	"github.com/shariqriazz/modelgate/internal/util"
+	sdkconfig "github.com/shariqriazz/modelgate/sdk/config"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -27,7 +27,7 @@ const (
 	defaultManagementReleaseURL  = "https://api.github.com/repos/router-for-me/Cli-Proxy-API-Management-Center/releases/latest"
 	defaultManagementFallbackURL = "https://cpamc.router-for.me/"
 	managementAssetName          = "management.html"
-	httpUserAgent                = "CLIProxyAPI-management-updater"
+	httpUserAgent                = "ModelGate-management-updater"
 	updateCheckInterval          = 3 * time.Hour
 )
 

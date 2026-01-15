@@ -1,4 +1,4 @@
-// Package api exposes helpers for embedding CLIProxyAPI.
+// Package api exposes helpers for embedding ModelGate.
 //
 // It wraps internal management handler types so external projects can integrate
 // management endpoints without importing internal packages.
@@ -6,9 +6,9 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
-	internalmanagement "github.com/router-for-me/CLIProxyAPI/v6/internal/api/handlers/management"
-	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
-	"github.com/router-for-me/CLIProxyAPI/v6/sdk/config"
+	internalmanagement "github.com/shariqriazz/modelgate/internal/api/handlers/management"
+	coreauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
+	"github.com/shariqriazz/modelgate/sdk/config"
 )
 
 // ManagementTokenRequester exposes a limited subset of management endpoints for requesting tokens.

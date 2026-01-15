@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
-	"github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/usage"
+	modelgateauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
+	"github.com/shariqriazz/modelgate/sdk/cliproxy/usage"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -26,7 +26,7 @@ type usageReporter struct {
 	once        sync.Once
 }
 
-func newUsageReporter(ctx context.Context, provider, model string, auth *cliproxyauth.Auth) *usageReporter {
+func newUsageReporter(ctx context.Context, provider, model string, auth *modelgateauth.Auth) *usageReporter {
 	apiKey := apiKeyFromContext(ctx)
 	reporter := &usageReporter{
 		provider:    provider,
@@ -131,7 +131,7 @@ func apiKeyFromContext(ctx context.Context) string {
 	return ""
 }
 
-func resolveUsageSource(auth *cliproxyauth.Auth, ctxAPIKey string) string {
+func resolveUsageSource(auth *modelgateauth.Auth, ctxAPIKey string) string {
 	if auth != nil {
 		provider := strings.TrimSpace(auth.Provider)
 		if strings.EqualFold(provider, "gemini-cli") {

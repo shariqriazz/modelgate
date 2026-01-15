@@ -17,8 +17,8 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/misc"
-	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	"github.com/shariqriazz/modelgate/internal/misc"
+	modelgateauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -156,7 +156,7 @@ func (s *ObjectTokenStore) Bootstrap(ctx context.Context, exampleConfigPath stri
 }
 
 // Save persists authentication metadata to disk and uploads it to the object storage backend.
-func (s *ObjectTokenStore) Save(ctx context.Context, auth *cliproxyauth.Auth) (string, error) {
+func (s *ObjectTokenStore) Save(ctx context.Context, auth *modelgateauth.Auth) (string, error) {
 	if auth == nil {
 		return "", fmt.Errorf("object store: auth is nil")
 	}
@@ -226,12 +226,12 @@ func (s *ObjectTokenStore) Save(ctx context.Context, auth *cliproxyauth.Auth) (s
 }
 
 // List enumerates auth JSON files from the mirrored workspace.
-func (s *ObjectTokenStore) List(_ context.Context) ([]*cliproxyauth.Auth, error) {
+func (s *ObjectTokenStore) List(_ context.Context) ([]*modelgateauth.Auth, error) {
 	dir := strings.TrimSpace(s.AuthDir())
 	if dir == "" {
 		return nil, fmt.Errorf("object store: auth directory not configured")
 	}
-	entries := make([]*cliproxyauth.Auth, 0, 32)
+	entries := make([]*modelgateauth.Auth, 0, 32)
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -505,7 +505,7 @@ func (s *ObjectTokenStore) prefixedKey(key string) string {
 	return strings.TrimLeft(s.cfg.Prefix+"/"+key, "/")
 }
 
-func (s *ObjectTokenStore) resolveAuthPath(auth *cliproxyauth.Auth) (string, error) {
+func (s *ObjectTokenStore) resolveAuthPath(auth *modelgateauth.Auth) (string, error) {
 	if auth == nil {
 		return "", fmt.Errorf("object store: auth is nil")
 	}
@@ -552,7 +552,7 @@ func (s *ObjectTokenStore) resolveDeletePath(id string) (string, error) {
 	return filepath.Join(s.authDir, clean), nil
 }
 
-func (s *ObjectTokenStore) readAuthFile(path, baseDir string) (*cliproxyauth.Auth, error) {
+func (s *ObjectTokenStore) readAuthFile(path, baseDir string) (*modelgateauth.Auth, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read file: %w", err)
@@ -581,12 +581,12 @@ func (s *ObjectTokenStore) readAuthFile(path, baseDir string) (*cliproxyauth.Aut
 	if email := strings.TrimSpace(valueAsString(metadata["email"])); email != "" {
 		attr["email"] = email
 	}
-	auth := &cliproxyauth.Auth{
+	auth := &modelgateauth.Auth{
 		ID:               rel,
 		Provider:         provider,
 		FileName:         rel,
 		Label:            labelFor(metadata),
-		Status:           cliproxyauth.StatusActive,
+		Status:           modelgateauth.StatusActive,
 		Attributes:       attr,
 		Metadata:         metadata,
 		CreatedAt:        info.ModTime(),

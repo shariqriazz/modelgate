@@ -5,11 +5,11 @@ import (
 	"errors"
 	"time"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	"github.com/shariqriazz/modelgate/internal/config"
+	coreauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
 )
 
-var ErrRefreshNotSupported = errors.New("cliproxy auth: refresh not supported")
+var ErrRefreshNotSupported = errors.New("modelgate auth: refresh not supported")
 
 // LoginOptions captures generic knobs shared across authenticators.
 // Provider-specific logic can inspect Metadata for extra parameters.

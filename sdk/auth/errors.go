@@ -3,7 +3,7 @@ package auth
 import (
 	"fmt"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/interfaces"
+	"github.com/shariqriazz/modelgate/internal/interfaces"
 )
 
 // ProjectSelectionError indicates that the user must choose a specific project ID.
@@ -14,9 +14,9 @@ type ProjectSelectionError struct {
 
 func (e *ProjectSelectionError) Error() string {
 	if e == nil {
-		return "cliproxy auth: project selection required"
+		return "modelgate auth: project selection required"
 	}
-	return fmt.Sprintf("cliproxy auth: project selection required for %s", e.Email)
+	return fmt.Sprintf("modelgate auth: project selection required for %s", e.Email)
 }
 
 // ProjectsDisplay returns the projects list for caller presentation.
@@ -34,7 +34,7 @@ type EmailRequiredError struct {
 
 func (e *EmailRequiredError) Error() string {
 	if e == nil || e.Prompt == "" {
-		return "cliproxy auth: email is required"
+		return "modelgate auth: email is required"
 	}
 	return e.Prompt
 }

@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	. "github.com/router-for-me/CLIProxyAPI/v6/internal/constant"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/interfaces"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
-	"github.com/router-for-me/CLIProxyAPI/v6/sdk/api/handlers"
+	. "github.com/shariqriazz/modelgate/internal/constant"
+	"github.com/shariqriazz/modelgate/internal/interfaces"
+	"github.com/shariqriazz/modelgate/internal/registry"
+	"github.com/shariqriazz/modelgate/sdk/api/handlers"
 )
 
 // GeminiAPIHandler contains the handlers for Gemini API endpoints.

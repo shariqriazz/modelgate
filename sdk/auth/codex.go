@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/auth/codex"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/browser"
+	"github.com/shariqriazz/modelgate/internal/auth/codex"
+	"github.com/shariqriazz/modelgate/internal/browser"
 	// legacy client removed
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/misc"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
-	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	"github.com/shariqriazz/modelgate/internal/config"
+	"github.com/shariqriazz/modelgate/internal/misc"
+	"github.com/shariqriazz/modelgate/internal/util"
+	coreauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -38,7 +38,7 @@ func (a *CodexAuthenticator) RefreshLead() *time.Duration {
 
 func (a *CodexAuthenticator) Login(ctx context.Context, cfg *config.Config, opts *LoginOptions) (*coreauth.Auth, error) {
 	if cfg == nil {
-		return nil, fmt.Errorf("cliproxy auth: configuration is required")
+		return nil, fmt.Errorf("modelgate auth: configuration is required")
 	}
 	if ctx == nil {
 		ctx = context.Background()

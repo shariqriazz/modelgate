@@ -17,13 +17,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/misc"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/runtime/geminicli"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
-	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
-	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/executor"
-	sdktranslator "github.com/router-for-me/CLIProxyAPI/v6/sdk/translator"
+	"github.com/shariqriazz/modelgate/internal/config"
+	"github.com/shariqriazz/modelgate/internal/misc"
+	"github.com/shariqriazz/modelgate/internal/runtime/geminicli"
+	"github.com/shariqriazz/modelgate/internal/util"
+	modelgateauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
+	modelgateexecutor "github.com/shariqriazz/modelgate/sdk/cliproxy/executor"
+	sdktranslator "github.com/shariqriazz/modelgate/sdk/translator"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -67,7 +67,7 @@ func NewGeminiCLIExecutor(cfg *config.Config) *GeminiCLIExecutor {
 func (e *GeminiCLIExecutor) Identifier() string { return "gemini-cli" }
 
 // PrepareRequest injects Gemini CLI credentials into the outgoing HTTP request.
-func (e *GeminiCLIExecutor) PrepareRequest(req *http.Request, auth *cliproxyauth.Auth) error {
+func (e *GeminiCLIExecutor) PrepareRequest(req *http.Request, auth *modelgateauth.Auth) error {
 	if req == nil {
 		return nil
 	}
@@ -88,7 +88,7 @@ func (e *GeminiCLIExecutor) PrepareRequest(req *http.Request, auth *cliproxyauth
 }
 
 // HttpRequest injects Gemini CLI credentials into the request and executes it.
-func (e *GeminiCLIExecutor) HttpRequest(ctx context.Context, auth *cliproxyauth.Auth, req *http.Request) (*http.Response, error) {
+func (e *GeminiCLIExecutor) HttpRequest(ctx context.Context, auth *modelgateauth.Auth, req *http.Request) (*http.Response, error) {
 	if req == nil {
 		return nil, fmt.Errorf("gemini-cli executor: request is nil")
 	}
@@ -104,7 +104,7 @@ func (e *GeminiCLIExecutor) HttpRequest(ctx context.Context, auth *cliproxyauth.
 }
 
 // Execute performs a non-streaming request to the Gemini CLI API.
-func (e *GeminiCLIExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (resp cliproxyexecutor.Response, err error) {
+func (e *GeminiCLIExecutor) Execute(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (resp modelgateexecutor.Response, err error) {
 	tokenSource, baseTokenData, err := prepareGeminiCLITokenSource(ctx, e.cfg, auth)
 	if err != nil {
 		return resp, err
@@ -217,7 +217,7 @@ func (e *GeminiCLIExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth
 			reporter.publish(ctx, parseGeminiCLIUsage(data))
 			var param any
 			out := sdktranslator.TranslateNonStream(respCtx, to, from, attemptModel, bytes.Clone(opts.OriginalRequest), payload, data, &param)
-			resp = cliproxyexecutor.Response{Payload: []byte(out)}
+			resp = modelgateexecutor.Response{Payload: []byte(out)}
 			return resp, nil
 		}
 
@@ -248,7 +248,7 @@ func (e *GeminiCLIExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth
 }
 
 // ExecuteStream performs a streaming request to the Gemini CLI API.
-func (e *GeminiCLIExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (stream <-chan cliproxyexecutor.StreamChunk, err error) {
+func (e *GeminiCLIExecutor) ExecuteStream(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (stream <-chan modelgateexecutor.StreamChunk, err error) {
 	tokenSource, baseTokenData, err := prepareGeminiCLITokenSource(ctx, e.cfg, auth)
 	if err != nil {
 		return nil, err
@@ -363,7 +363,7 @@ func (e *GeminiCLIExecutor) ExecuteStream(ctx context.Context, auth *cliproxyaut
 			return nil, err
 		}
 
-		out := make(chan cliproxyexecutor.StreamChunk)
+		out := make(chan modelgateexecutor.StreamChunk)
 		stream = out
 		go func(resp *http.Response, reqBody []byte, attemptModel string) {
 			defer close(out)
@@ -385,19 +385,19 @@ func (e *GeminiCLIExecutor) ExecuteStream(ctx context.Context, auth *cliproxyaut
 					if bytes.HasPrefix(line, dataTag) {
 						segments := sdktranslator.TranslateStream(respCtx, to, from, attemptModel, bytes.Clone(opts.OriginalRequest), reqBody, bytes.Clone(line), &param)
 						for i := range segments {
-							out <- cliproxyexecutor.StreamChunk{Payload: []byte(segments[i])}
+							out <- modelgateexecutor.StreamChunk{Payload: []byte(segments[i])}
 						}
 					}
 				}
 
 				segments := sdktranslator.TranslateStream(respCtx, to, from, attemptModel, bytes.Clone(opts.OriginalRequest), reqBody, bytes.Clone([]byte("[DONE]")), &param)
 				for i := range segments {
-					out <- cliproxyexecutor.StreamChunk{Payload: []byte(segments[i])}
+					out <- modelgateexecutor.StreamChunk{Payload: []byte(segments[i])}
 				}
 				if errScan := scanner.Err(); errScan != nil {
 					recordAPIResponseError(ctx, e.cfg, errScan)
 					reporter.publishFailure(ctx)
-					out <- cliproxyexecutor.StreamChunk{Err: errScan}
+					out <- modelgateexecutor.StreamChunk{Err: errScan}
 				}
 				return
 			}
@@ -406,7 +406,7 @@ func (e *GeminiCLIExecutor) ExecuteStream(ctx context.Context, auth *cliproxyaut
 			if errRead != nil {
 				recordAPIResponseError(ctx, e.cfg, errRead)
 				reporter.publishFailure(ctx)
-				out <- cliproxyexecutor.StreamChunk{Err: errRead}
+				out <- modelgateexecutor.StreamChunk{Err: errRead}
 				return
 			}
 			appendAPIResponseChunk(ctx, e.cfg, data)
@@ -414,12 +414,12 @@ func (e *GeminiCLIExecutor) ExecuteStream(ctx context.Context, auth *cliproxyaut
 			var param any
 			segments := sdktranslator.TranslateStream(respCtx, to, from, attemptModel, bytes.Clone(opts.OriginalRequest), reqBody, data, &param)
 			for i := range segments {
-				out <- cliproxyexecutor.StreamChunk{Payload: []byte(segments[i])}
+				out <- modelgateexecutor.StreamChunk{Payload: []byte(segments[i])}
 			}
 
 			segments = sdktranslator.TranslateStream(respCtx, to, from, attemptModel, bytes.Clone(opts.OriginalRequest), reqBody, bytes.Clone([]byte("[DONE]")), &param)
 			for i := range segments {
-				out <- cliproxyexecutor.StreamChunk{Payload: []byte(segments[i])}
+				out <- modelgateexecutor.StreamChunk{Payload: []byte(segments[i])}
 			}
 		}(httpResp, append([]byte(nil), payload...), attemptModel)
 
@@ -437,10 +437,10 @@ func (e *GeminiCLIExecutor) ExecuteStream(ctx context.Context, auth *cliproxyaut
 }
 
 // CountTokens counts tokens for the given request using the Gemini CLI API.
-func (e *GeminiCLIExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
+func (e *GeminiCLIExecutor) CountTokens(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (modelgateexecutor.Response, error) {
 	tokenSource, baseTokenData, err := prepareGeminiCLITokenSource(ctx, e.cfg, auth)
 	if err != nil {
-		return cliproxyexecutor.Response{}, err
+		return modelgateexecutor.Response{}, err
 	}
 
 	from := opts.SourceFormat
@@ -478,7 +478,7 @@ func (e *GeminiCLIExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.
 
 		tok, errTok := tokenSource.Token()
 		if errTok != nil {
-			return cliproxyexecutor.Response{}, errTok
+			return modelgateexecutor.Response{}, errTok
 		}
 		updateGeminiCLITokenMetadata(auth, baseTokenData, tok)
 
@@ -489,7 +489,7 @@ func (e *GeminiCLIExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.
 
 		reqHTTP, errReq := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
 		if errReq != nil {
-			return cliproxyexecutor.Response{}, errReq
+			return modelgateexecutor.Response{}, errReq
 		}
 		reqHTTP.Header.Set("Content-Type", "application/json")
 		reqHTTP.Header.Set("Authorization", "Bearer "+tok.AccessToken)
@@ -510,20 +510,20 @@ func (e *GeminiCLIExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.
 		resp, errDo := httpClient.Do(reqHTTP)
 		if errDo != nil {
 			recordAPIResponseError(ctx, e.cfg, errDo)
-			return cliproxyexecutor.Response{}, errDo
+			return modelgateexecutor.Response{}, errDo
 		}
 		data, errRead := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
 		recordAPIResponseMetadata(ctx, e.cfg, resp.StatusCode, resp.Header.Clone())
 		if errRead != nil {
 			recordAPIResponseError(ctx, e.cfg, errRead)
-			return cliproxyexecutor.Response{}, errRead
+			return modelgateexecutor.Response{}, errRead
 		}
 		appendAPIResponseChunk(ctx, e.cfg, data)
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			count := gjson.GetBytes(data, "totalTokens").Int()
 			translated := sdktranslator.TranslateTokenCount(respCtx, to, from, count, data)
-			return cliproxyexecutor.Response{Payload: []byte(translated)}, nil
+			return modelgateexecutor.Response{Payload: []byte(translated)}, nil
 		}
 		lastStatus = resp.StatusCode
 		lastBody = append([]byte(nil), data...)
@@ -537,15 +537,15 @@ func (e *GeminiCLIExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.
 	if lastStatus == 0 {
 		lastStatus = 429
 	}
-	return cliproxyexecutor.Response{}, newGeminiStatusErr(lastStatus, lastBody)
+	return modelgateexecutor.Response{}, newGeminiStatusErr(lastStatus, lastBody)
 }
 
 // Refresh refreshes the authentication credentials (no-op for Gemini CLI).
-func (e *GeminiCLIExecutor) Refresh(_ context.Context, auth *cliproxyauth.Auth) (*cliproxyauth.Auth, error) {
+func (e *GeminiCLIExecutor) Refresh(_ context.Context, auth *modelgateauth.Auth) (*modelgateauth.Auth, error) {
 	return auth, nil
 }
 
-func prepareGeminiCLITokenSource(ctx context.Context, cfg *config.Config, auth *cliproxyauth.Auth) (oauth2.TokenSource, map[string]any, error) {
+func prepareGeminiCLITokenSource(ctx context.Context, cfg *config.Config, auth *modelgateauth.Auth) (oauth2.TokenSource, map[string]any, error) {
 	metadata := geminiOAuthMetadata(auth)
 	if auth == nil || metadata == nil {
 		return nil, nil, fmt.Errorf("gemini-cli auth metadata missing")
@@ -603,7 +603,7 @@ func prepareGeminiCLITokenSource(ctx context.Context, cfg *config.Config, auth *
 	return oauth2.ReuseTokenSource(currentToken, src), base, nil
 }
 
-func updateGeminiCLITokenMetadata(auth *cliproxyauth.Auth, base map[string]any, tok *oauth2.Token) {
+func updateGeminiCLITokenMetadata(auth *modelgateauth.Auth, base map[string]any, tok *oauth2.Token) {
 	if auth == nil || tok == nil {
 		return
 	}
@@ -661,7 +661,7 @@ func buildGeminiTokenFields(tok *oauth2.Token, merged map[string]any) map[string
 	return fields
 }
 
-func resolveGeminiProjectID(auth *cliproxyauth.Auth) string {
+func resolveGeminiProjectID(auth *modelgateauth.Auth) string {
 	if auth == nil {
 		return ""
 	}
@@ -673,7 +673,7 @@ func resolveGeminiProjectID(auth *cliproxyauth.Auth) string {
 	return strings.TrimSpace(stringValue(auth.Metadata, "project_id"))
 }
 
-func geminiOAuthMetadata(auth *cliproxyauth.Auth) map[string]any {
+func geminiOAuthMetadata(auth *modelgateauth.Auth) map[string]any {
 	if auth == nil {
 		return nil
 	}
@@ -685,7 +685,7 @@ func geminiOAuthMetadata(auth *cliproxyauth.Auth) map[string]any {
 	return auth.Metadata
 }
 
-func newHTTPClient(ctx context.Context, cfg *config.Config, auth *cliproxyauth.Auth, timeout time.Duration) *http.Client {
+func newHTTPClient(ctx context.Context, cfg *config.Config, auth *modelgateauth.Auth, timeout time.Duration) *http.Client {
 	return newProxyAwareHTTPClient(ctx, cfg, auth, timeout)
 }
 

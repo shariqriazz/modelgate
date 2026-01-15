@@ -14,11 +14,11 @@ import (
 	"sync"
 
 	"github.com/gin-gonic/gin"
-	. "github.com/router-for-me/CLIProxyAPI/v6/internal/constant"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/interfaces"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
-	responsesconverter "github.com/router-for-me/CLIProxyAPI/v6/internal/translator/openai/openai/responses"
-	"github.com/router-for-me/CLIProxyAPI/v6/sdk/api/handlers"
+	. "github.com/shariqriazz/modelgate/internal/constant"
+	"github.com/shariqriazz/modelgate/internal/interfaces"
+	"github.com/shariqriazz/modelgate/internal/registry"
+	responsesconverter "github.com/shariqriazz/modelgate/internal/translator/openai/openai/responses"
+	"github.com/shariqriazz/modelgate/sdk/api/handlers"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )

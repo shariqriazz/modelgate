@@ -16,19 +16,19 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
-	configaccess "github.com/router-for-me/CLIProxyAPI/v6/internal/access/config_access"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/buildinfo"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/cmd"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/logging"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/managementasset"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/misc"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/store"
-	_ "github.com/router-for-me/CLIProxyAPI/v6/internal/translator"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/usage"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
-	sdkAuth "github.com/router-for-me/CLIProxyAPI/v6/sdk/auth"
-	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	configaccess "github.com/shariqriazz/modelgate/internal/access/config_access"
+	"github.com/shariqriazz/modelgate/internal/buildinfo"
+	"github.com/shariqriazz/modelgate/internal/cmd"
+	"github.com/shariqriazz/modelgate/internal/config"
+	"github.com/shariqriazz/modelgate/internal/logging"
+	"github.com/shariqriazz/modelgate/internal/managementasset"
+	"github.com/shariqriazz/modelgate/internal/misc"
+	"github.com/shariqriazz/modelgate/internal/store"
+	_ "github.com/shariqriazz/modelgate/internal/translator"
+	"github.com/shariqriazz/modelgate/internal/usage"
+	"github.com/shariqriazz/modelgate/internal/util"
+	sdkAuth "github.com/shariqriazz/modelgate/sdk/auth"
+	coreauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -51,7 +51,7 @@ func init() {
 // It parses command-line flags, loads configuration, and starts the appropriate
 // service based on the provided flags (login, codex-login, or server mode).
 func main() {
-	fmt.Printf("CLIProxyAPI Version: %s, Commit: %s, BuiltAt: %s\n", buildinfo.Version, buildinfo.Commit, buildinfo.BuildDate)
+	fmt.Printf("ModelGate Version: %s, Commit: %s, BuiltAt: %s\n", buildinfo.Version, buildinfo.Commit, buildinfo.BuildDate)
 
 	// Command-line flags to control the application's behavior.
 	var login bool
@@ -414,7 +414,7 @@ func main() {
 		return
 	}
 
-	log.Infof("CLIProxyAPI Version: %s, Commit: %s, BuiltAt: %s", buildinfo.Version, buildinfo.Commit, buildinfo.BuildDate)
+	log.Infof("ModelGate Version: %s, Commit: %s, BuiltAt: %s", buildinfo.Version, buildinfo.Commit, buildinfo.BuildDate)
 
 	// Set the log level based on the configuration.
 	util.SetLogLevel(cfg)

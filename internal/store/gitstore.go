@@ -18,7 +18,7 @@ import (
 	"github.com/go-git/go-git/v6/plumbing/object"
 	"github.com/go-git/go-git/v6/plumbing/transport"
 	"github.com/go-git/go-git/v6/plumbing/transport/http"
-	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	modelgateauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
 )
 
 // GitTokenStore persists token records and auth metadata using git as the backing storage.
@@ -209,7 +209,7 @@ func (s *GitTokenStore) EnsureRepository() error {
 }
 
 // Save persists token storage and metadata to the resolved auth file path.
-func (s *GitTokenStore) Save(_ context.Context, auth *cliproxyauth.Auth) (string, error) {
+func (s *GitTokenStore) Save(_ context.Context, auth *modelgateauth.Auth) (string, error) {
 	if auth == nil {
 		return "", fmt.Errorf("auth filestore: auth is nil")
 	}
@@ -292,7 +292,7 @@ func (s *GitTokenStore) Save(_ context.Context, auth *cliproxyauth.Auth) (string
 }
 
 // List enumerates all auth JSON files under the configured directory.
-func (s *GitTokenStore) List(_ context.Context) ([]*cliproxyauth.Auth, error) {
+func (s *GitTokenStore) List(_ context.Context) ([]*modelgateauth.Auth, error) {
 	if err := s.EnsureRepository(); err != nil {
 		return nil, err
 	}
@@ -300,7 +300,7 @@ func (s *GitTokenStore) List(_ context.Context) ([]*cliproxyauth.Auth, error) {
 	if dir == "" {
 		return nil, fmt.Errorf("auth filestore: directory not configured")
 	}
-	entries := make([]*cliproxyauth.Auth, 0)
+	entries := make([]*modelgateauth.Auth, 0)
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -405,7 +405,7 @@ func (s *GitTokenStore) resolveDeletePath(id string) (string, error) {
 	return filepath.Join(dir, id), nil
 }
 
-func (s *GitTokenStore) readAuthFile(path, baseDir string) (*cliproxyauth.Auth, error) {
+func (s *GitTokenStore) readAuthFile(path, baseDir string) (*modelgateauth.Auth, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read file: %w", err)
@@ -426,12 +426,12 @@ func (s *GitTokenStore) readAuthFile(path, baseDir string) (*cliproxyauth.Auth, 
 		return nil, fmt.Errorf("stat file: %w", err)
 	}
 	id := s.idFor(path, baseDir)
-	auth := &cliproxyauth.Auth{
+	auth := &modelgateauth.Auth{
 		ID:               id,
 		Provider:         provider,
 		FileName:         id,
 		Label:            s.labelFor(metadata),
-		Status:           cliproxyauth.StatusActive,
+		Status:           modelgateauth.StatusActive,
 		Attributes:       map[string]string{"path": path},
 		Metadata:         metadata,
 		CreatedAt:        info.ModTime(),
@@ -456,7 +456,7 @@ func (s *GitTokenStore) idFor(path, baseDir string) string {
 	return rel
 }
 
-func (s *GitTokenStore) resolveAuthPath(auth *cliproxyauth.Auth) (string, error) {
+func (s *GitTokenStore) resolveAuthPath(auth *modelgateauth.Auth) (string, error) {
 	if auth == nil {
 		return "", fmt.Errorf("auth filestore: auth is nil")
 	}
@@ -592,8 +592,8 @@ func (s *GitTokenStore) commitAndPushLocked(message string, relPaths ...string) 
 		message = "Update auth store"
 	}
 	signature := &object.Signature{
-		Name:  "CLIProxyAPI",
-		Email: "cliproxy@local",
+		Name:  "ModelGate",
+		Email: "modelgate@local",
 		When:  time.Now(),
 	}
 	commitHash, err := worktree.Commit(message, &git.CommitOptions{

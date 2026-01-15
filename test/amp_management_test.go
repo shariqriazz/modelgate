@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/api/handlers/management"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
+	"github.com/shariqriazz/modelgate/internal/api/handlers/management"
+	"github.com/shariqriazz/modelgate/internal/config"
 )
 
 func init() {

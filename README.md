@@ -1,22 +1,44 @@
-# CLIProxyAPI Plus
+# ModelGate
 
-English | [Chinese](README_CN.md)
+A high-performance API gateway for AI/LLM providers with built-in authentication, load balancing, and resilience.
 
-This is the Plus version of [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI), adding support for third-party providers on top of the mainline project.
+## Features
 
-All third-party provider support is maintained by community contributors; CLIProxyAPI does not provide technical support. Please contact the corresponding community maintainer if you need assistance.
+- **Multi-Provider Support**: Antigravity (Gemini), Codex, Qwen, IFlow, GitHub Copilot
+- **OAuth Credential Management**: Automatic token refresh and secure storage
+- **Load Balancing**: Round-robin and fill-first routing strategies
+- **Resilience**: Configurable retries, quota-exceeded failover, streaming keep-alives
+- **Management API**: Web-based control panel for configuration
 
-The Plus release stays in lockstep with the mainline features.
+## Quick Start
 
-## Differences from the Mainline
+```bash
+# Build
+go build -o modelgate ./cmd/server
 
-- Added GitHub Copilot support (OAuth login)
+# Login to a provider
+./modelgate -antigravity-login
 
-## Contributing
+# Start the server
+./modelgate -config config.yaml
+```
 
-This project only accepts pull requests that relate to third-party provider support. Any pull requests unrelated to third-party provider support will be rejected.
+## Configuration
 
-If you need to submit any non-third-party provider changes, please open them against the mainline repository.
+See [config.example.yaml](config.example.yaml) for all available options.
+
+For server deployment, see [config.server.yaml](config.server.yaml).
+
+## Supported Providers
+
+| Provider | Auth Method | Status |
+|----------|-------------|--------|
+| Antigravity (Gemini) | OAuth | Active |
+| Gemini API Key | API Key | Active |
+| Codex | OAuth | Active |
+| Qwen | OAuth | Active |
+| IFlow | OAuth/Cookie | Active |
+| GitHub Copilot | Device Flow | Active |
 
 ## License
 

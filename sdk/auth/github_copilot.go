@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/auth/copilot"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/browser"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	"github.com/shariqriazz/modelgate/internal/auth/copilot"
+	"github.com/shariqriazz/modelgate/internal/browser"
+	"github.com/shariqriazz/modelgate/internal/config"
+	coreauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -34,7 +34,7 @@ func (GitHubCopilotAuthenticator) RefreshLead() *time.Duration {
 // Login initiates the GitHub device flow authentication for Copilot access.
 func (a GitHubCopilotAuthenticator) Login(ctx context.Context, cfg *config.Config, opts *LoginOptions) (*coreauth.Auth, error) {
 	if cfg == nil {
-		return nil, fmt.Errorf("cliproxy auth: configuration is required")
+		return nil, fmt.Errorf("modelgate auth: configuration is required")
 	}
 	if opts == nil {
 		opts = &LoginOptions{}

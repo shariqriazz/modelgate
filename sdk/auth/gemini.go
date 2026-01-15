@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/auth/gemini"
+	"github.com/shariqriazz/modelgate/internal/auth/gemini"
 	// legacy client removed
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	"github.com/shariqriazz/modelgate/internal/config"
+	coreauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
 )
 
 // GeminiAuthenticator implements the login flow for Google Gemini CLI accounts.
@@ -29,7 +29,7 @@ func (a *GeminiAuthenticator) RefreshLead() *time.Duration {
 
 func (a *GeminiAuthenticator) Login(ctx context.Context, cfg *config.Config, opts *LoginOptions) (*coreauth.Auth, error) {
 	if cfg == nil {
-		return nil, fmt.Errorf("cliproxy auth: configuration is required")
+		return nil, fmt.Errorf("modelgate auth: configuration is required")
 	}
 	if ctx == nil {
 		ctx = context.Background()

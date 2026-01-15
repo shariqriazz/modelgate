@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	codexauth "github.com/router-for-me/CLIProxyAPI/v6/internal/auth/codex"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/misc"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
-	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
-	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/executor"
-	sdktranslator "github.com/router-for-me/CLIProxyAPI/v6/sdk/translator"
+	codexauth "github.com/shariqriazz/modelgate/internal/auth/codex"
+	"github.com/shariqriazz/modelgate/internal/config"
+	"github.com/shariqriazz/modelgate/internal/misc"
+	"github.com/shariqriazz/modelgate/internal/util"
+	modelgateauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
+	modelgateexecutor "github.com/shariqriazz/modelgate/sdk/cliproxy/executor"
+	sdktranslator "github.com/shariqriazz/modelgate/sdk/translator"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -39,7 +39,7 @@ func NewCodexExecutor(cfg *config.Config) *CodexExecutor { return &CodexExecutor
 func (e *CodexExecutor) Identifier() string { return "codex" }
 
 // PrepareRequest injects Codex credentials into the outgoing HTTP request.
-func (e *CodexExecutor) PrepareRequest(req *http.Request, auth *cliproxyauth.Auth) error {
+func (e *CodexExecutor) PrepareRequest(req *http.Request, auth *modelgateauth.Auth) error {
 	if req == nil {
 		return nil
 	}
@@ -56,7 +56,7 @@ func (e *CodexExecutor) PrepareRequest(req *http.Request, auth *cliproxyauth.Aut
 }
 
 // HttpRequest injects Codex credentials into the request and executes it.
-func (e *CodexExecutor) HttpRequest(ctx context.Context, auth *cliproxyauth.Auth, req *http.Request) (*http.Response, error) {
+func (e *CodexExecutor) HttpRequest(ctx context.Context, auth *modelgateauth.Auth, req *http.Request) (*http.Response, error) {
 	if req == nil {
 		return nil, fmt.Errorf("codex executor: request is nil")
 	}
@@ -71,7 +71,7 @@ func (e *CodexExecutor) HttpRequest(ctx context.Context, auth *cliproxyauth.Auth
 	return httpClient.Do(httpReq)
 }
 
-func (e *CodexExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (resp cliproxyexecutor.Response, err error) {
+func (e *CodexExecutor) Execute(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (resp modelgateexecutor.Response, err error) {
 	apiKey, baseURL := codexCreds(auth)
 
 	if baseURL == "" {
@@ -174,14 +174,14 @@ func (e *CodexExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, re
 
 		var param any
 		out := sdktranslator.TranslateNonStream(ctx, to, from, req.Model, bytes.Clone(originalPayload), body, line, &param)
-		resp = cliproxyexecutor.Response{Payload: []byte(out)}
+		resp = modelgateexecutor.Response{Payload: []byte(out)}
 		return resp, nil
 	}
 	err = statusErr{code: 408, msg: "stream error: stream disconnected before completion: stream closed before response.completed"}
 	return resp, err
 }
 
-func (e *CodexExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (stream <-chan cliproxyexecutor.StreamChunk, err error) {
+func (e *CodexExecutor) ExecuteStream(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (stream <-chan modelgateexecutor.StreamChunk, err error) {
 	apiKey, baseURL := codexCreds(auth)
 
 	if baseURL == "" {
@@ -263,7 +263,7 @@ func (e *CodexExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Au
 		err = statusErr{code: httpResp.StatusCode, msg: string(data)}
 		return nil, err
 	}
-	out := make(chan cliproxyexecutor.StreamChunk)
+	out := make(chan modelgateexecutor.StreamChunk)
 	stream = out
 	go func() {
 		defer close(out)
@@ -290,19 +290,19 @@ func (e *CodexExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Au
 
 			chunks := sdktranslator.TranslateStream(ctx, to, from, req.Model, bytes.Clone(originalPayload), body, bytes.Clone(line), &param)
 			for i := range chunks {
-				out <- cliproxyexecutor.StreamChunk{Payload: []byte(chunks[i])}
+				out <- modelgateexecutor.StreamChunk{Payload: []byte(chunks[i])}
 			}
 		}
 		if errScan := scanner.Err(); errScan != nil {
 			recordAPIResponseError(ctx, e.cfg, errScan)
 			reporter.publishFailure(ctx)
-			out <- cliproxyexecutor.StreamChunk{Err: errScan}
+			out <- modelgateexecutor.StreamChunk{Err: errScan}
 		}
 	}()
 	return stream, nil
 }
 
-func (e *CodexExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
+func (e *CodexExecutor) CountTokens(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (modelgateexecutor.Response, error) {
 	model := req.Model
 	if override := e.resolveUpstreamModel(req.Model, auth); override != "" {
 		model = override
@@ -323,17 +323,17 @@ func (e *CodexExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Auth
 
 	enc, err := tokenizerForCodexModel(model)
 	if err != nil {
-		return cliproxyexecutor.Response{}, fmt.Errorf("codex executor: tokenizer init failed: %w", err)
+		return modelgateexecutor.Response{}, fmt.Errorf("codex executor: tokenizer init failed: %w", err)
 	}
 
 	count, err := countCodexInputTokens(enc, body)
 	if err != nil {
-		return cliproxyexecutor.Response{}, fmt.Errorf("codex executor: token counting failed: %w", err)
+		return modelgateexecutor.Response{}, fmt.Errorf("codex executor: token counting failed: %w", err)
 	}
 
 	usageJSON := fmt.Sprintf(`{"response":{"usage":{"input_tokens":%d,"output_tokens":0,"total_tokens":%d}}}`, count, count)
 	translated := sdktranslator.TranslateTokenCount(ctx, to, from, count, []byte(usageJSON))
-	return cliproxyexecutor.Response{Payload: []byte(translated)}, nil
+	return modelgateexecutor.Response{Payload: []byte(translated)}, nil
 }
 
 func tokenizerForCodexModel(model string) (tokenizer.Codec, error) {
@@ -458,7 +458,7 @@ func countCodexInputTokens(enc tokenizer.Codec, body []byte) (int64, error) {
 	return int64(count), nil
 }
 
-func (e *CodexExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*cliproxyauth.Auth, error) {
+func (e *CodexExecutor) Refresh(ctx context.Context, auth *modelgateauth.Auth) (*modelgateauth.Auth, error) {
 	log.Debugf("codex executor: refresh called")
 	if auth == nil {
 		return nil, statusErr{code: 500, msg: "codex executor: auth is nil"}
@@ -497,7 +497,7 @@ func (e *CodexExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*
 	return auth, nil
 }
 
-func (e *CodexExecutor) cacheHelper(ctx context.Context, from sdktranslator.Format, url string, req cliproxyexecutor.Request, rawJSON []byte) (*http.Request, error) {
+func (e *CodexExecutor) cacheHelper(ctx context.Context, from sdktranslator.Format, url string, req modelgateexecutor.Request, rawJSON []byte) (*http.Request, error) {
 	var cache codexCache
 	if from == "claude" {
 		userIDResult := gjson.GetBytes(req.Payload, "metadata.user_id")
@@ -529,7 +529,7 @@ func (e *CodexExecutor) cacheHelper(ctx context.Context, from sdktranslator.Form
 	return httpReq, nil
 }
 
-func applyCodexHeaders(r *http.Request, auth *cliproxyauth.Auth, token string) {
+func applyCodexHeaders(r *http.Request, auth *modelgateauth.Auth, token string) {
 	r.Header.Set("Content-Type", "application/json")
 	r.Header.Set("Authorization", "Bearer "+token)
 
@@ -577,7 +577,7 @@ func codexUserAgent(ctx context.Context) string {
 	return ""
 }
 
-func codexCreds(a *cliproxyauth.Auth) (apiKey, baseURL string) {
+func codexCreds(a *modelgateauth.Auth) (apiKey, baseURL string) {
 	if a == nil {
 		return "", ""
 	}
@@ -593,7 +593,7 @@ func codexCreds(a *cliproxyauth.Auth) (apiKey, baseURL string) {
 	return
 }
 
-func (e *CodexExecutor) resolveUpstreamModel(alias string, auth *cliproxyauth.Auth) string {
+func (e *CodexExecutor) resolveUpstreamModel(alias string, auth *modelgateauth.Auth) string {
 	trimmed := strings.TrimSpace(alias)
 	if trimmed == "" {
 		return ""
@@ -638,7 +638,7 @@ func (e *CodexExecutor) resolveUpstreamModel(alias string, auth *cliproxyauth.Au
 	return ""
 }
 
-func (e *CodexExecutor) resolveCodexConfig(auth *cliproxyauth.Auth) *config.CodexKey {
+func (e *CodexExecutor) resolveCodexConfig(auth *modelgateauth.Auth) *config.CodexKey {
 	if auth == nil || e.cfg == nil {
 		return nil
 	}
