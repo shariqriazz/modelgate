@@ -358,3 +358,19 @@ func extractHTMLTitle(body []byte) string {
 	}
 	return strings.Join(strings.Fields(title), " ")
 }
+
+// statusErr represents an HTTP status error with optional retry-after duration.
+type statusErr struct {
+	code       int
+	msg        string
+	retryAfter *time.Duration
+}
+
+func (e statusErr) Error() string {
+	if e.msg != "" {
+		return e.msg
+	}
+	return fmt.Sprintf("status %d", e.code)
+}
+func (e statusErr) StatusCode() int            { return e.code }
+func (e statusErr) RetryAfter() *time.Duration { return e.retryAfter }
