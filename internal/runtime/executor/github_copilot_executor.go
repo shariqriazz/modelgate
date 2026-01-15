@@ -108,7 +108,12 @@ func (e *GitHubCopilotExecutor) Execute(ctx context.Context, auth *modelgateauth
 	defer reporter.trackFailure(ctx, &err)
 
 	from := opts.SourceFormat
-	to := sdktranslator.FromString("openai")
+	// Use "codex" translator for GPT-5 models (responses API), "openai" for others (chat completions)
+	toFormat := "openai"
+	if isGPT5Model(req.Model) {
+		toFormat = "codex"
+	}
+	to := sdktranslator.FromString(toFormat)
 	originalPayload := bytes.Clone(req.Payload)
 	if len(opts.OriginalRequest) > 0 {
 		originalPayload = bytes.Clone(opts.OriginalRequest)
@@ -196,7 +201,12 @@ func (e *GitHubCopilotExecutor) ExecuteStream(ctx context.Context, auth *modelga
 	defer reporter.trackFailure(ctx, &err)
 
 	from := opts.SourceFormat
-	to := sdktranslator.FromString("openai")
+	// Use "codex" translator for GPT-5 models (responses API), "openai" for others (chat completions)
+	toFormat := "openai"
+	if isGPT5Model(req.Model) {
+		toFormat = "codex"
+	}
+	to := sdktranslator.FromString(toFormat)
 	originalPayload := bytes.Clone(req.Payload)
 	if len(opts.OriginalRequest) > 0 {
 		originalPayload = bytes.Clone(opts.OriginalRequest)
