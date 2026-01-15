@@ -520,7 +520,7 @@ func fetchAntigravityProjectAndTier(ctx context.Context, accessToken string, htt
 }
 
 // antigravityOnboardUser attempts to fetch the project ID via onboardUser by polling for completion.
-// It polls up to 150 times with 2s intervals (5 minutes total) to match LLM-API-Key-Proxy behavior.
+// It polls up to 150 times with 2s intervals (5 minutes total) for robust onboarding.
 // Returns an empty string when the operation times out or completes without a project ID.
 func antigravityOnboardUser(ctx context.Context, accessToken, tierID string, httpClient *http.Client) (string, error) {
 	if httpClient == nil {

@@ -49,7 +49,7 @@ const (
 	refreshSkew                    = 3000 * time.Second
 	systemInstruction              = "You are Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team working on Advanced Agentic Coding.You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.**Absolute paths only****Proactiveness**"
 
-	// Empty response retry configuration (matches LLM-API-Key-Proxy behavior)
+	// Empty response retry configuration
 	// Used by helper functions: isBare429, attemptJSONRepair, checkForMalformedFunctionCall
 	// These can be integrated into ExecuteStream for enhanced resilience
 	emptyResponseMaxAttempts = 6
@@ -598,6 +598,7 @@ func (e *AntigravityExecutor) convertStreamToNonStream(stream []byte) []byte {
 }
 
 // ExecuteStream performs a streaming request to the Antigravity API.
+// Includes retry logic for empty responses and bare 429s.
 func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (stream <-chan cliproxyexecutor.StreamChunk, err error) {
 	ctx = context.WithValue(ctx, "alt", "")
 
@@ -632,140 +633,191 @@ func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 	baseURLs := antigravityBaseURLFallbackOrder(auth)
 	httpClient := newProxyAwareHTTPClient(ctx, e.cfg, auth, 0)
 
-	var lastStatus int
-	var lastBody []byte
-	var lastErr error
+	// Outer retry loop for empty responses and bare 429s
+	for emptyAttempt := 0; emptyAttempt < emptyResponseMaxAttempts; emptyAttempt++ {
+		var lastStatus int
+		var lastBody []byte
+		var lastErr error
 
-	for idx, baseURL := range baseURLs {
-		httpReq, errReq := e.buildRequest(ctx, auth, token, req.Model, translated, true, opts.Alt, baseURL)
-		if errReq != nil {
-			err = errReq
-			return nil, err
-		}
+		for idx, baseURL := range baseURLs {
+			httpReq, errReq := e.buildRequest(ctx, auth, token, req.Model, translated, true, opts.Alt, baseURL)
+			if errReq != nil {
+				err = errReq
+				return nil, err
+			}
 
-		httpResp, errDo := httpClient.Do(httpReq)
-		if errDo != nil {
-			recordAPIResponseError(ctx, e.cfg, errDo)
-			if errors.Is(errDo, context.Canceled) || errors.Is(errDo, context.DeadlineExceeded) {
-				return nil, errDo
-			}
-			lastStatus = 0
-			lastBody = nil
-			lastErr = errDo
-			if idx+1 < len(baseURLs) {
-				log.Debugf("antigravity executor: request error on base url %s, retrying with fallback base url: %s", baseURL, baseURLs[idx+1])
-				continue
-			}
-			err = errDo
-			return nil, err
-		}
-		recordAPIResponseMetadata(ctx, e.cfg, httpResp.StatusCode, httpResp.Header.Clone())
-		if httpResp.StatusCode < http.StatusOK || httpResp.StatusCode >= http.StatusMultipleChoices {
-			bodyBytes, errRead := io.ReadAll(httpResp.Body)
-			if errClose := httpResp.Body.Close(); errClose != nil {
-				log.Errorf("antigravity executor: close response body error: %v", errClose)
-			}
-			if errRead != nil {
-				recordAPIResponseError(ctx, e.cfg, errRead)
-				if errors.Is(errRead, context.Canceled) || errors.Is(errRead, context.DeadlineExceeded) {
-					err = errRead
-					return nil, err
-				}
-				if errCtx := ctx.Err(); errCtx != nil {
-					err = errCtx
-					return nil, err
+			httpResp, errDo := httpClient.Do(httpReq)
+			if errDo != nil {
+				recordAPIResponseError(ctx, e.cfg, errDo)
+				if errors.Is(errDo, context.Canceled) || errors.Is(errDo, context.DeadlineExceeded) {
+					return nil, errDo
 				}
 				lastStatus = 0
 				lastBody = nil
-				lastErr = errRead
+				lastErr = errDo
 				if idx+1 < len(baseURLs) {
-					log.Debugf("antigravity executor: read error on base url %s, retrying with fallback base url: %s", baseURL, baseURLs[idx+1])
+					log.Debugf("antigravity executor: request error on base url %s, retrying with fallback base url: %s", baseURL, baseURLs[idx+1])
 					continue
 				}
-				err = errRead
+				err = errDo
 				return nil, err
 			}
-			appendAPIResponseChunk(ctx, e.cfg, bodyBytes)
-			lastStatus = httpResp.StatusCode
-			lastBody = append([]byte(nil), bodyBytes...)
-			lastErr = nil
-			if httpResp.StatusCode == http.StatusTooManyRequests && idx+1 < len(baseURLs) {
-				log.Debugf("antigravity executor: rate limited on base url %s, retrying with fallback base url: %s", baseURL, baseURLs[idx+1])
-				continue
+			recordAPIResponseMetadata(ctx, e.cfg, httpResp.StatusCode, httpResp.Header.Clone())
+			if httpResp.StatusCode < http.StatusOK || httpResp.StatusCode >= http.StatusMultipleChoices {
+				bodyBytes, errRead := io.ReadAll(httpResp.Body)
+				if errClose := httpResp.Body.Close(); errClose != nil {
+					log.Errorf("antigravity executor: close response body error: %v", errClose)
+				}
+				if errRead != nil {
+					recordAPIResponseError(ctx, e.cfg, errRead)
+					if errors.Is(errRead, context.Canceled) || errors.Is(errRead, context.DeadlineExceeded) {
+						err = errRead
+						return nil, err
+					}
+					if errCtx := ctx.Err(); errCtx != nil {
+						err = errCtx
+						return nil, err
+					}
+					lastStatus = 0
+					lastBody = nil
+					lastErr = errRead
+					if idx+1 < len(baseURLs) {
+						log.Debugf("antigravity executor: read error on base url %s, retrying with fallback base url: %s", baseURL, baseURLs[idx+1])
+						continue
+					}
+					err = errRead
+					return nil, err
+				}
+				appendAPIResponseChunk(ctx, e.cfg, bodyBytes)
+				lastStatus = httpResp.StatusCode
+				lastBody = append([]byte(nil), bodyBytes...)
+				lastErr = nil
+
+				// Handle 429 responses
+				if httpResp.StatusCode == http.StatusTooManyRequests {
+					// Check if this is a bare 429 (transient) vs real quota exhaustion
+					if isBare429(httpResp.StatusCode, bodyBytes) {
+						// Bare 429 - retry like empty response
+						if emptyAttempt < emptyResponseMaxAttempts-1 {
+							log.Warnf("antigravity executor: bare 429 from %s, attempt %d/%d, retrying...", req.Model, emptyAttempt+1, emptyResponseMaxAttempts)
+							if errClose := httpResp.Body.Close(); errClose != nil {
+								log.Debugf("antigravity executor: close body on bare 429: %v", errClose)
+							}
+							time.Sleep(emptyResponseRetryDelay)
+							break // Break inner loop, continue outer retry loop
+						}
+					}
+					// Try fallback URL first
+					if idx+1 < len(baseURLs) {
+						log.Debugf("antigravity executor: rate limited on base url %s, retrying with fallback base url: %s", baseURL, baseURLs[idx+1])
+						continue
+					}
+				}
+
+				sErr := statusErr{code: httpResp.StatusCode, msg: string(bodyBytes)}
+				if httpResp.StatusCode == http.StatusTooManyRequests {
+					if retryAfter, parseErr := parseRetryDelay(bodyBytes); parseErr == nil && retryAfter != nil {
+						sErr.retryAfter = retryAfter
+					}
+				}
+				err = sErr
+				return nil, err
 			}
-			sErr := statusErr{code: httpResp.StatusCode, msg: string(bodyBytes)}
-			if httpResp.StatusCode == http.StatusTooManyRequests {
-				if retryAfter, parseErr := parseRetryDelay(bodyBytes); parseErr == nil && retryAfter != nil {
+
+			// Success - set up streaming with empty response detection
+			out := make(chan cliproxyexecutor.StreamChunk)
+			stream = out
+
+			// Use a wrapper channel to detect empty responses
+			go func(resp *http.Response, attemptNum int) {
+				defer close(out)
+				defer func() {
+					if errClose := resp.Body.Close(); errClose != nil {
+						log.Errorf("antigravity executor: close response body error: %v", errClose)
+					}
+				}()
+
+				scanner := bufio.NewScanner(resp.Body)
+				scanner.Buffer(nil, streamScannerBuffer)
+				var param any
+				chunkCount := 0
+
+				for scanner.Scan() {
+					line := scanner.Bytes()
+					appendAPIResponseChunk(ctx, e.cfg, line)
+
+					// Filter usage metadata for all models
+					// Only retain usage statistics in the terminal chunk
+					line = FilterSSEUsageMetadata(line)
+
+					payload := jsonPayload(line)
+					if payload == nil {
+						continue
+					}
+
+					// Check for MALFORMED_FUNCTION_CALL
+					if malformedMsg := checkForMalformedFunctionCall(payload); malformedMsg != "" {
+						log.Warnf("antigravity executor: MALFORMED_FUNCTION_CALL detected: %s", malformedMsg[:min(100, len(malformedMsg))])
+						// TODO: Future enhancement - attempt JSON auto-fix here using attemptJSONRepair
+					}
+
+					if detail, ok := parseAntigravityStreamUsage(payload); ok {
+						reporter.publish(ctx, detail)
+					}
+
+					chunks := sdktranslator.TranslateStream(ctx, to, from, req.Model, bytes.Clone(opts.OriginalRequest), translated, bytes.Clone(payload), &param)
+					for i := range chunks {
+						chunkCount++
+						out <- cliproxyexecutor.StreamChunk{Payload: []byte(chunks[i])}
+					}
+				}
+
+				tail := sdktranslator.TranslateStream(ctx, to, from, req.Model, bytes.Clone(opts.OriginalRequest), translated, []byte("[DONE]"), &param)
+				for i := range tail {
+					chunkCount++
+					out <- cliproxyexecutor.StreamChunk{Payload: []byte(tail[i])}
+				}
+
+				if errScan := scanner.Err(); errScan != nil {
+					recordAPIResponseError(ctx, e.cfg, errScan)
+					reporter.publishFailure(ctx)
+					out <- cliproxyexecutor.StreamChunk{Err: errScan}
+				} else {
+					// Log if we got an empty response (for debugging)
+					if chunkCount == 0 {
+						log.Warnf("antigravity executor: empty stream received from %s (attempt %d)", req.Model, attemptNum+1)
+					}
+					reporter.ensurePublished(ctx)
+				}
+			}(httpResp, emptyAttempt)
+			return stream, nil
+		}
+
+		// If we broke out of the inner loop due to bare 429, continue outer retry
+		if lastStatus == http.StatusTooManyRequests && isBare429(lastStatus, lastBody) {
+			continue
+		}
+
+		// Handle final errors
+		switch {
+		case lastStatus != 0:
+			sErr := statusErr{code: lastStatus, msg: string(lastBody)}
+			if lastStatus == http.StatusTooManyRequests {
+				if retryAfter, parseErr := parseRetryDelay(lastBody); parseErr == nil && retryAfter != nil {
 					sErr.retryAfter = retryAfter
 				}
 			}
 			err = sErr
-			return nil, err
+		case lastErr != nil:
+			err = lastErr
+		default:
+			err = statusErr{code: http.StatusServiceUnavailable, msg: "antigravity executor: no base url available"}
 		}
-
-		out := make(chan cliproxyexecutor.StreamChunk)
-		stream = out
-		go func(resp *http.Response) {
-			defer close(out)
-			defer func() {
-				if errClose := resp.Body.Close(); errClose != nil {
-					log.Errorf("antigravity executor: close response body error: %v", errClose)
-				}
-			}()
-			scanner := bufio.NewScanner(resp.Body)
-			scanner.Buffer(nil, streamScannerBuffer)
-			var param any
-			for scanner.Scan() {
-				line := scanner.Bytes()
-				appendAPIResponseChunk(ctx, e.cfg, line)
-
-				// Filter usage metadata for all models
-				// Only retain usage statistics in the terminal chunk
-				line = FilterSSEUsageMetadata(line)
-
-				payload := jsonPayload(line)
-				if payload == nil {
-					continue
-				}
-
-				if detail, ok := parseAntigravityStreamUsage(payload); ok {
-					reporter.publish(ctx, detail)
-				}
-
-				chunks := sdktranslator.TranslateStream(ctx, to, from, req.Model, bytes.Clone(opts.OriginalRequest), translated, bytes.Clone(payload), &param)
-				for i := range chunks {
-					out <- cliproxyexecutor.StreamChunk{Payload: []byte(chunks[i])}
-				}
-			}
-			tail := sdktranslator.TranslateStream(ctx, to, from, req.Model, bytes.Clone(opts.OriginalRequest), translated, []byte("[DONE]"), &param)
-			for i := range tail {
-				out <- cliproxyexecutor.StreamChunk{Payload: []byte(tail[i])}
-			}
-			if errScan := scanner.Err(); errScan != nil {
-				recordAPIResponseError(ctx, e.cfg, errScan)
-				reporter.publishFailure(ctx)
-				out <- cliproxyexecutor.StreamChunk{Err: errScan}
-			} else {
-				reporter.ensurePublished(ctx)
-			}
-		}(httpResp)
-		return stream, nil
+		return nil, err
 	}
 
-	switch {
-	case lastStatus != 0:
-		sErr := statusErr{code: lastStatus, msg: string(lastBody)}
-		if lastStatus == http.StatusTooManyRequests {
-			if retryAfter, parseErr := parseRetryDelay(lastBody); parseErr == nil && retryAfter != nil {
-				sErr.retryAfter = retryAfter
-			}
-		}
-		err = sErr
-	case lastErr != nil:
-		err = lastErr
-	default:
-		err = statusErr{code: http.StatusServiceUnavailable, msg: "antigravity executor: no base url available"}
-	}
+	// Should not reach here, but handle gracefully
+	err = statusErr{code: http.StatusServiceUnavailable, msg: "antigravity executor: max retry attempts exceeded"}
 	return nil, err
 }
 
