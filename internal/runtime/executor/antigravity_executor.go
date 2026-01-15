@@ -597,8 +597,153 @@ func (e *AntigravityExecutor) convertStreamToNonStream(stream []byte) []byte {
 	return []byte(output)
 }
 
+// streamValidationResult holds the result of validating a stream's first chunks
+type streamValidationResult struct {
+	bufferedChunks []cliproxyexecutor.StreamChunk
+	scanner        *bufio.Scanner
+	resp           *http.Response
+	needsRetry     bool
+	retryReason    string
+	malformedJSON  string // Original malformed JSON for auto-fix attempt
+	scanErr        error
+	isEmpty        bool
+}
+
+// validateStreamStart reads initial chunks to detect empty responses or malformed function calls
+// before returning control to the caller. This enables retry on these conditions.
+func (e *AntigravityExecutor) validateStreamStart(
+	ctx context.Context,
+	resp *http.Response,
+	to, from sdktranslator.Format,
+	model string,
+	originalRequest, translated []byte,
+	param *any,
+	reporter *usageReporter,
+) streamValidationResult {
+	result := streamValidationResult{
+		resp:           resp,
+		bufferedChunks: make([]cliproxyexecutor.StreamChunk, 0, 8),
+	}
+
+	scanner := bufio.NewScanner(resp.Body)
+	scanner.Buffer(nil, streamScannerBuffer)
+	result.scanner = scanner
+
+	contentChunkCount := 0
+	maxValidationChunks := 50 // Read up to 50 SSE lines before deciding
+
+	for i := 0; i < maxValidationChunks && scanner.Scan(); i++ {
+		line := scanner.Bytes()
+		appendAPIResponseChunk(ctx, e.cfg, line)
+
+		line = FilterSSEUsageMetadata(line)
+
+		payload := jsonPayload(line)
+		if payload == nil {
+			continue
+		}
+
+		// Check for MALFORMED_FUNCTION_CALL - this is retryable with auto-fix
+		if malformedMsg := checkForMalformedFunctionCall(payload); malformedMsg != "" {
+			log.Warnf("antigravity executor: MALFORMED_FUNCTION_CALL detected, attempting auto-fix")
+			result.malformedJSON = malformedMsg
+
+			// Try to auto-fix the malformed JSON
+			if fixed, ok := attemptJSONRepair(malformedMsg); ok {
+				log.Infof("antigravity executor: successfully repaired malformed JSON")
+				// Create a synthetic valid tool call response
+				syntheticChunk := createRepairedToolCallChunk([]byte(fixed), model)
+				if syntheticChunk != nil {
+					result.bufferedChunks = append(result.bufferedChunks, cliproxyexecutor.StreamChunk{Payload: syntheticChunk})
+					contentChunkCount++
+				}
+			} else {
+				// Auto-fix failed, mark for retry
+				result.needsRetry = true
+				result.retryReason = "MALFORMED_FUNCTION_CALL"
+				return result
+			}
+			continue
+		}
+
+		if detail, ok := parseAntigravityStreamUsage(payload); ok {
+			reporter.publish(ctx, detail)
+		}
+
+		chunks := sdktranslator.TranslateStream(ctx, to, from, model, bytes.Clone(originalRequest), bytes.Clone(translated), bytes.Clone(payload), param)
+		for _, chunk := range chunks {
+			result.bufferedChunks = append(result.bufferedChunks, cliproxyexecutor.StreamChunk{Payload: []byte(chunk)})
+			contentChunkCount++
+		}
+
+		// Once we have real content, validation is complete
+		if contentChunkCount > 0 {
+			break
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		result.scanErr = err
+		return result
+	}
+
+	// If we read all validation chunks and got nothing, it's likely empty
+	if contentChunkCount == 0 {
+		result.isEmpty = true
+		result.needsRetry = true
+		result.retryReason = "empty_response"
+	}
+
+	return result
+}
+
+// createRepairedToolCallChunk creates a synthetic SSE chunk for a repaired tool call
+func createRepairedToolCallChunk(repairedJSON []byte, model string) []byte {
+	// Parse the repaired JSON to extract function name and arguments
+	var parsed map[string]any
+	if err := json.Unmarshal(repairedJSON, &parsed); err != nil {
+		return nil
+	}
+
+	// Build an OpenAI-compatible tool call delta
+	toolCall := map[string]any{
+		"id":   "repaired_call_" + fmt.Sprintf("%d", time.Now().UnixNano()),
+		"type": "function",
+		"function": map[string]any{
+			"name":      parsed["name"],
+			"arguments": string(repairedJSON),
+		},
+	}
+
+	delta := map[string]any{
+		"role":       "assistant",
+		"tool_calls": []any{toolCall},
+	}
+
+	chunk := map[string]any{
+		"id":      "repaired_" + fmt.Sprintf("%d", time.Now().UnixNano()),
+		"object":  "chat.completion.chunk",
+		"created": time.Now().Unix(),
+		"model":   model,
+		"choices": []any{
+			map[string]any{
+				"index":         0,
+				"delta":         delta,
+				"finish_reason": "tool_calls",
+			},
+		},
+	}
+
+	data, err := json.Marshal(chunk)
+	if err != nil {
+		return nil
+	}
+
+	return append([]byte("data: "), data...)
+}
+
 // ExecuteStream performs a streaming request to the Antigravity API.
-// Includes retry logic for empty responses and bare 429s.
+// Uses buffered validation to enable retry on empty responses, bare 429s, and malformed function calls.
 func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (stream <-chan cliproxyexecutor.StreamChunk, err error) {
 	ctx = context.WithValue(ctx, "alt", "")
 
@@ -633,8 +778,8 @@ func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 	baseURLs := antigravityBaseURLFallbackOrder(auth)
 	httpClient := newProxyAwareHTTPClient(ctx, e.cfg, auth, 0)
 
-	// Outer retry loop for empty responses and bare 429s
-	for emptyAttempt := 0; emptyAttempt < emptyResponseMaxAttempts; emptyAttempt++ {
+	// Outer retry loop for empty responses, bare 429s, and malformed function calls
+	for attempt := 0; attempt < emptyResponseMaxAttempts; attempt++ {
 		var lastStatus int
 		var lastBody []byte
 		var lastErr error
@@ -663,6 +808,8 @@ func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 				return nil, err
 			}
 			recordAPIResponseMetadata(ctx, e.cfg, httpResp.StatusCode, httpResp.Header.Clone())
+
+			// Handle non-2xx responses
 			if httpResp.StatusCode < http.StatusOK || httpResp.StatusCode >= http.StatusMultipleChoices {
 				bodyBytes, errRead := io.ReadAll(httpResp.Body)
 				if errClose := httpResp.Body.Close(); errClose != nil {
@@ -695,21 +842,16 @@ func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 
 				// Handle 429 responses
 				if httpResp.StatusCode == http.StatusTooManyRequests {
-					// Check if this is a bare 429 (transient) vs real quota exhaustion
 					if isBare429(httpResp.StatusCode, bodyBytes) {
-						// Bare 429 - retry like empty response
-						if emptyAttempt < emptyResponseMaxAttempts-1 {
-							log.Warnf("antigravity executor: bare 429 from %s, attempt %d/%d, retrying...", req.Model, emptyAttempt+1, emptyResponseMaxAttempts)
-							if errClose := httpResp.Body.Close(); errClose != nil {
-								log.Debugf("antigravity executor: close body on bare 429: %v", errClose)
-							}
+						if attempt < emptyResponseMaxAttempts-1 {
+							log.Warnf("antigravity executor: bare 429 from %s, attempt %d/%d, retrying in %v...",
+								req.Model, attempt+1, emptyResponseMaxAttempts, emptyResponseRetryDelay)
 							time.Sleep(emptyResponseRetryDelay)
-							break // Break inner loop, continue outer retry loop
+							break // Break inner loop, continue outer retry
 						}
 					}
-					// Try fallback URL first
 					if idx+1 < len(baseURLs) {
-						log.Debugf("antigravity executor: rate limited on base url %s, retrying with fallback base url: %s", baseURL, baseURLs[idx+1])
+						log.Debugf("antigravity executor: rate limited on base url %s, retrying with fallback", baseURL)
 						continue
 					}
 				}
@@ -724,30 +866,46 @@ func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 				return nil, err
 			}
 
-			// Success - set up streaming with empty response detection
-			out := make(chan cliproxyexecutor.StreamChunk)
+			// Success - validate stream start before returning channel
+			var param any
+			validation := e.validateStreamStart(ctx, httpResp, to, from, req.Model,
+				bytes.Clone(opts.OriginalRequest), translated, &param, reporter)
+
+			// Check if we need to retry
+			if validation.needsRetry && attempt < emptyResponseMaxAttempts-1 {
+				log.Warnf("antigravity executor: %s detected from %s, attempt %d/%d, retrying in %v...",
+					validation.retryReason, req.Model, attempt+1, emptyResponseMaxAttempts, emptyResponseRetryDelay)
+				if errClose := httpResp.Body.Close(); errClose != nil {
+					log.Debugf("antigravity executor: close body on retry: %v", errClose)
+				}
+				time.Sleep(emptyResponseRetryDelay)
+				break // Break inner loop, continue outer retry
+			}
+
+			// Validation passed or max retries reached - return the stream
+			out := make(chan cliproxyexecutor.StreamChunk, len(validation.bufferedChunks)+16)
 			stream = out
 
-			// Use a wrapper channel to detect empty responses
-			go func(resp *http.Response, attemptNum int) {
+			go func(v streamValidationResult, attemptNum int) {
 				defer close(out)
 				defer func() {
-					if errClose := resp.Body.Close(); errClose != nil {
+					if errClose := v.resp.Body.Close(); errClose != nil {
 						log.Errorf("antigravity executor: close response body error: %v", errClose)
 					}
 				}()
 
-				scanner := bufio.NewScanner(resp.Body)
-				scanner.Buffer(nil, streamScannerBuffer)
-				var param any
-				chunkCount := 0
+				// First, emit any buffered chunks from validation
+				for _, chunk := range v.bufferedChunks {
+					out <- chunk
+				}
 
-				for scanner.Scan() {
-					line := scanner.Bytes()
+				chunkCount := len(v.bufferedChunks)
+
+				// Continue reading remaining stream
+				for v.scanner.Scan() {
+					line := v.scanner.Bytes()
 					appendAPIResponseChunk(ctx, e.cfg, line)
 
-					// Filter usage metadata for all models
-					// Only retain usage statistics in the terminal chunk
 					line = FilterSSEUsageMetadata(line)
 
 					payload := jsonPayload(line)
@@ -755,10 +913,17 @@ func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 						continue
 					}
 
-					// Check for MALFORMED_FUNCTION_CALL
+					// Check for MALFORMED_FUNCTION_CALL in remaining stream
 					if malformedMsg := checkForMalformedFunctionCall(payload); malformedMsg != "" {
-						log.Warnf("antigravity executor: MALFORMED_FUNCTION_CALL detected: %s", malformedMsg[:min(100, len(malformedMsg))])
-						// TODO: Future enhancement - attempt JSON auto-fix here using attemptJSONRepair
+						log.Warnf("antigravity executor: MALFORMED_FUNCTION_CALL in stream: %s", malformedMsg[:min(100, len(malformedMsg))])
+						if fixed, ok := attemptJSONRepair(malformedMsg); ok {
+							log.Infof("antigravity executor: repaired malformed JSON in-stream")
+							if syntheticChunk := createRepairedToolCallChunk([]byte(fixed), req.Model); syntheticChunk != nil {
+								out <- cliproxyexecutor.StreamChunk{Payload: syntheticChunk}
+								chunkCount++
+							}
+						}
+						continue
 					}
 
 					if detail, ok := parseAntigravityStreamUsage(payload); ok {
@@ -778,22 +943,22 @@ func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 					out <- cliproxyexecutor.StreamChunk{Payload: []byte(tail[i])}
 				}
 
-				if errScan := scanner.Err(); errScan != nil {
+				if errScan := v.scanner.Err(); errScan != nil {
 					recordAPIResponseError(ctx, e.cfg, errScan)
 					reporter.publishFailure(ctx)
 					out <- cliproxyexecutor.StreamChunk{Err: errScan}
 				} else {
-					// Log if we got an empty response (for debugging)
 					if chunkCount == 0 {
-						log.Warnf("antigravity executor: empty stream received from %s (attempt %d)", req.Model, attemptNum+1)
+						log.Warnf("antigravity executor: stream completed with zero content chunks (attempt %d)", attemptNum+1)
 					}
 					reporter.ensurePublished(ctx)
 				}
-			}(httpResp, emptyAttempt)
+			}(validation, attempt)
+
 			return stream, nil
 		}
 
-		// If we broke out of the inner loop due to bare 429, continue outer retry
+		// If bare 429 triggered break, continue outer loop
 		if lastStatus == http.StatusTooManyRequests && isBare429(lastStatus, lastBody) {
 			continue
 		}
@@ -816,7 +981,6 @@ func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 		return nil, err
 	}
 
-	// Should not reach here, but handle gracefully
 	err = statusErr{code: http.StatusServiceUnavailable, msg: "antigravity executor: max retry attempts exceeded"}
 	return nil, err
 }
