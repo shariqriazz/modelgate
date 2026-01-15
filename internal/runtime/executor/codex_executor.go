@@ -107,6 +107,7 @@ func (e *CodexExecutor) Execute(ctx context.Context, auth *modelgateauth.Auth, r
 	body, _ = sjson.SetBytes(body, "stream", true)
 	body, _ = sjson.DeleteBytes(body, "previous_response_id")
 	body, _ = sjson.DeleteBytes(body, "prompt_cache_retention")
+	body, _ = sjson.DeleteBytes(body, "safety_identifier")
 
 	url := strings.TrimSuffix(baseURL, "/") + "/responses"
 	httpReq, err := e.cacheHelper(ctx, from, url, req, body)
@@ -216,6 +217,7 @@ func (e *CodexExecutor) ExecuteStream(ctx context.Context, auth *modelgateauth.A
 	body = applyPayloadConfigWithRoot(e.cfg, model, to.String(), "", body, originalTranslated)
 	body, _ = sjson.DeleteBytes(body, "previous_response_id")
 	body, _ = sjson.DeleteBytes(body, "prompt_cache_retention")
+	body, _ = sjson.DeleteBytes(body, "safety_identifier")
 	body, _ = sjson.SetBytes(body, "model", model)
 
 	url := strings.TrimSuffix(baseURL, "/") + "/responses"
@@ -319,6 +321,7 @@ func (e *CodexExecutor) CountTokens(ctx context.Context, auth *modelgateauth.Aut
 	body, _ = sjson.SetBytes(body, "model", model)
 	body, _ = sjson.DeleteBytes(body, "previous_response_id")
 	body, _ = sjson.DeleteBytes(body, "prompt_cache_retention")
+	body, _ = sjson.DeleteBytes(body, "safety_identifier")
 	body, _ = sjson.SetBytes(body, "stream", false)
 
 	enc, err := tokenizerForCodexModel(model)
