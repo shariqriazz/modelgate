@@ -22,10 +22,11 @@ import (
 )
 
 const (
-	githubCopilotBaseURL       = "https://api.githubcopilot.com"
-	githubCopilotChatPath      = "/chat/completions"
-	githubCopilotAuthType      = "github-copilot"
-	githubCopilotTokenCacheTTL = 25 * time.Minute
+	githubCopilotBaseURL         = "https://api.githubcopilot.com"
+	githubCopilotChatPath        = "/chat/completions"
+	githubCopilotResponsesPath   = "/responses"
+	githubCopilotAuthType        = "github-copilot"
+	githubCopilotTokenCacheTTL   = 25 * time.Minute
 	// tokenExpiryBuffer is the time before expiry when we should refresh the token.
 	tokenExpiryBuffer = 5 * time.Minute
 	// maxScannerBufferSize is the maximum buffer size for SSE scanning (20MB).
@@ -118,7 +119,7 @@ func (e *GitHubCopilotExecutor) Execute(ctx context.Context, auth *modelgateauth
 	body = applyPayloadConfigWithRoot(e.cfg, req.Model, to.String(), "", body, originalTranslated)
 	body, _ = sjson.SetBytes(body, "stream", false)
 
-	url := githubCopilotBaseURL + githubCopilotChatPath
+	url := githubCopilotBaseURL + getEndpointPath(req.Model)
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return resp, err
@@ -208,7 +209,7 @@ func (e *GitHubCopilotExecutor) ExecuteStream(ctx context.Context, auth *modelga
 	// Enable stream options for usage stats in stream
 	body, _ = sjson.SetBytes(body, "stream_options.include_usage", true)
 
-	url := githubCopilotBaseURL + githubCopilotChatPath
+	url := githubCopilotBaseURL + getEndpointPath(req.Model)
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
@@ -398,6 +399,21 @@ func (e *GitHubCopilotExecutor) normalizeModel(model string, body []byte) []byte
 		body, _ = sjson.SetBytes(body, "model", normalized)
 	}
 	return body
+}
+
+// isGPT5Model checks if the model is a GPT-5 series model that requires the /responses endpoint.
+func isGPT5Model(model string) bool {
+	normalized := strings.TrimPrefix(model, "copilot-")
+	return strings.HasPrefix(normalized, "gpt-5")
+}
+
+// getEndpointPath returns the appropriate endpoint path based on the model.
+// GPT-5 series models use /responses, others use /chat/completions.
+func getEndpointPath(model string) string {
+	if isGPT5Model(model) {
+		return githubCopilotResponsesPath
+	}
+	return githubCopilotChatPath
 }
 
 // isHTTPSuccess checks if the status code indicates success (2xx).
