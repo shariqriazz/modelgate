@@ -13,7 +13,6 @@ import (
 
 // ManagementTokenRequester exposes a limited subset of management endpoints for requesting tokens.
 type ManagementTokenRequester interface {
-	RequestAnthropicToken(*gin.Context)
 	RequestGeminiCLIToken(*gin.Context)
 	RequestCodexToken(*gin.Context)
 	RequestAntigravityToken(*gin.Context)
@@ -33,10 +32,6 @@ func NewManagementTokenRequester(cfg *config.Config, manager *coreauth.Manager) 
 	return &managementTokenRequester{
 		handler: internalmanagement.NewHandlerWithoutConfigFilePath(cfg, manager),
 	}
-}
-
-func (m *managementTokenRequester) RequestAnthropicToken(c *gin.Context) {
-	m.handler.RequestAnthropicToken(c)
 }
 
 func (m *managementTokenRequester) RequestGeminiCLIToken(c *gin.Context) {

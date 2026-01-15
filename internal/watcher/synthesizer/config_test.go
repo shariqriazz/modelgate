@@ -154,77 +154,6 @@ func TestConfigSynthesizer_GeminiKeys(t *testing.T) {
 	}
 }
 
-func TestConfigSynthesizer_ClaudeKeys(t *testing.T) {
-	synth := NewConfigSynthesizer()
-	ctx := &SynthesisContext{
-		Config: &config.Config{
-			ClaudeKey: []config.ClaudeKey{
-				{
-					APIKey:  "sk-ant-api-xxx",
-					Prefix:  "main",
-					BaseURL: "https://api.anthropic.com",
-					Models: []config.ClaudeModel{
-						{Name: "claude-3-opus"},
-						{Name: "claude-3-sonnet"},
-					},
-				},
-			},
-		},
-		Now:         time.Now(),
-		IDGenerator: NewStableIDGenerator(),
-	}
-
-	auths, err := synth.Synthesize(ctx)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(auths) != 1 {
-		t.Fatalf("expected 1 auth, got %d", len(auths))
-	}
-
-	if auths[0].Provider != "claude" {
-		t.Errorf("expected provider claude, got %s", auths[0].Provider)
-	}
-	if auths[0].Label != "claude-apikey" {
-		t.Errorf("expected label claude-apikey, got %s", auths[0].Label)
-	}
-	if auths[0].Prefix != "main" {
-		t.Errorf("expected prefix main, got %s", auths[0].Prefix)
-	}
-	if auths[0].Attributes["api_key"] != "sk-ant-api-xxx" {
-		t.Errorf("expected api_key sk-ant-api-xxx, got %s", auths[0].Attributes["api_key"])
-	}
-	if _, ok := auths[0].Attributes["models_hash"]; !ok {
-		t.Error("expected models_hash in attributes")
-	}
-}
-
-func TestConfigSynthesizer_ClaudeKeys_SkipsEmptyAndHeaders(t *testing.T) {
-	synth := NewConfigSynthesizer()
-	ctx := &SynthesisContext{
-		Config: &config.Config{
-			ClaudeKey: []config.ClaudeKey{
-				{APIKey: ""},    // empty, should be skipped
-				{APIKey: "   "}, // whitespace, should be skipped
-				{APIKey: "valid-key", Headers: map[string]string{"X-Custom": "value"}},
-			},
-		},
-		Now:         time.Now(),
-		IDGenerator: NewStableIDGenerator(),
-	}
-
-	auths, err := synth.Synthesize(ctx)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(auths) != 1 {
-		t.Fatalf("expected 1 auth (empty keys skipped), got %d", len(auths))
-	}
-	if auths[0].Attributes["header:X-Custom"] != "value" {
-		t.Errorf("expected header:X-Custom=value, got %s", auths[0].Attributes["header:X-Custom"])
-	}
-}
-
 func TestConfigSynthesizer_CodexKeys(t *testing.T) {
 	synth := NewConfigSynthesizer()
 	ctx := &SynthesisContext{
@@ -287,257 +216,6 @@ func TestConfigSynthesizer_CodexKeys_SkipsEmptyAndHeaders(t *testing.T) {
 	}
 }
 
-func TestConfigSynthesizer_OpenAICompat(t *testing.T) {
-	tests := []struct {
-		name    string
-		compat  []config.OpenAICompatibility
-		wantLen int
-	}{
-		{
-			name: "with APIKeyEntries",
-			compat: []config.OpenAICompatibility{
-				{
-					Name:    "CustomProvider",
-					BaseURL: "https://custom.api.com",
-					APIKeyEntries: []config.OpenAICompatibilityAPIKey{
-						{APIKey: "key-1"},
-						{APIKey: "key-2"},
-					},
-				},
-			},
-			wantLen: 2,
-		},
-		{
-			name: "empty APIKeyEntries included (legacy)",
-			compat: []config.OpenAICompatibility{
-				{
-					Name:    "EmptyKeys",
-					BaseURL: "https://empty.api.com",
-					APIKeyEntries: []config.OpenAICompatibilityAPIKey{
-						{APIKey: ""},
-						{APIKey: "   "},
-					},
-				},
-			},
-			wantLen: 2,
-		},
-		{
-			name: "without APIKeyEntries (fallback)",
-			compat: []config.OpenAICompatibility{
-				{
-					Name:    "NoKeyProvider",
-					BaseURL: "https://no-key.api.com",
-				},
-			},
-			wantLen: 1,
-		},
-		{
-			name: "empty name defaults",
-			compat: []config.OpenAICompatibility{
-				{
-					Name:    "",
-					BaseURL: "https://default.api.com",
-				},
-			},
-			wantLen: 1,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			synth := NewConfigSynthesizer()
-			ctx := &SynthesisContext{
-				Config: &config.Config{
-					OpenAICompatibility: tt.compat,
-				},
-				Now:         time.Now(),
-				IDGenerator: NewStableIDGenerator(),
-			}
-
-			auths, err := synth.Synthesize(ctx)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if len(auths) != tt.wantLen {
-				t.Fatalf("expected %d auths, got %d", tt.wantLen, len(auths))
-			}
-		})
-	}
-}
-
-func TestConfigSynthesizer_VertexCompat(t *testing.T) {
-	synth := NewConfigSynthesizer()
-	ctx := &SynthesisContext{
-		Config: &config.Config{
-			VertexCompatAPIKey: []config.VertexCompatKey{
-				{
-					APIKey:  "vertex-key-123",
-					BaseURL: "https://vertex.googleapis.com",
-					Prefix:  "vertex-prod",
-				},
-			},
-		},
-		Now:         time.Now(),
-		IDGenerator: NewStableIDGenerator(),
-	}
-
-	auths, err := synth.Synthesize(ctx)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(auths) != 1 {
-		t.Fatalf("expected 1 auth, got %d", len(auths))
-	}
-
-	if auths[0].Provider != "vertex" {
-		t.Errorf("expected provider vertex, got %s", auths[0].Provider)
-	}
-	if auths[0].Label != "vertex-apikey" {
-		t.Errorf("expected label vertex-apikey, got %s", auths[0].Label)
-	}
-	if auths[0].Prefix != "vertex-prod" {
-		t.Errorf("expected prefix vertex-prod, got %s", auths[0].Prefix)
-	}
-}
-
-func TestConfigSynthesizer_VertexCompat_SkipsEmptyAndHeaders(t *testing.T) {
-	synth := NewConfigSynthesizer()
-	ctx := &SynthesisContext{
-		Config: &config.Config{
-			VertexCompatAPIKey: []config.VertexCompatKey{
-				{APIKey: "", BaseURL: "https://vertex.api"},   // empty key creates auth without api_key attr
-				{APIKey: "  ", BaseURL: "https://vertex.api"}, // whitespace key creates auth without api_key attr
-				{APIKey: "valid-key", BaseURL: "https://vertex.api", Headers: map[string]string{"X-Vertex": "test"}},
-			},
-		},
-		Now:         time.Now(),
-		IDGenerator: NewStableIDGenerator(),
-	}
-
-	auths, err := synth.Synthesize(ctx)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	// Vertex compat doesn't skip empty keys - it creates auths without api_key attribute
-	if len(auths) != 3 {
-		t.Fatalf("expected 3 auths, got %d", len(auths))
-	}
-	// First two should not have api_key attribute
-	if _, ok := auths[0].Attributes["api_key"]; ok {
-		t.Error("expected first auth to not have api_key attribute")
-	}
-	if _, ok := auths[1].Attributes["api_key"]; ok {
-		t.Error("expected second auth to not have api_key attribute")
-	}
-	// Third should have headers
-	if auths[2].Attributes["header:X-Vertex"] != "test" {
-		t.Errorf("expected header:X-Vertex=test, got %s", auths[2].Attributes["header:X-Vertex"])
-	}
-}
-
-func TestConfigSynthesizer_OpenAICompat_WithModelsHash(t *testing.T) {
-	synth := NewConfigSynthesizer()
-	ctx := &SynthesisContext{
-		Config: &config.Config{
-			OpenAICompatibility: []config.OpenAICompatibility{
-				{
-					Name:    "TestProvider",
-					BaseURL: "https://test.api.com",
-					Models: []config.OpenAICompatibilityModel{
-						{Name: "model-a"},
-						{Name: "model-b"},
-					},
-					APIKeyEntries: []config.OpenAICompatibilityAPIKey{
-						{APIKey: "key-with-models"},
-					},
-				},
-			},
-		},
-		Now:         time.Now(),
-		IDGenerator: NewStableIDGenerator(),
-	}
-
-	auths, err := synth.Synthesize(ctx)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(auths) != 1 {
-		t.Fatalf("expected 1 auth, got %d", len(auths))
-	}
-	if _, ok := auths[0].Attributes["models_hash"]; !ok {
-		t.Error("expected models_hash in attributes")
-	}
-	if auths[0].Attributes["api_key"] != "key-with-models" {
-		t.Errorf("expected api_key key-with-models, got %s", auths[0].Attributes["api_key"])
-	}
-}
-
-func TestConfigSynthesizer_OpenAICompat_FallbackWithModels(t *testing.T) {
-	synth := NewConfigSynthesizer()
-	ctx := &SynthesisContext{
-		Config: &config.Config{
-			OpenAICompatibility: []config.OpenAICompatibility{
-				{
-					Name:    "NoKeyWithModels",
-					BaseURL: "https://nokey.api.com",
-					Models: []config.OpenAICompatibilityModel{
-						{Name: "model-x"},
-					},
-					Headers: map[string]string{"X-API": "header-value"},
-					// No APIKeyEntries - should use fallback path
-				},
-			},
-		},
-		Now:         time.Now(),
-		IDGenerator: NewStableIDGenerator(),
-	}
-
-	auths, err := synth.Synthesize(ctx)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(auths) != 1 {
-		t.Fatalf("expected 1 auth, got %d", len(auths))
-	}
-	if _, ok := auths[0].Attributes["models_hash"]; !ok {
-		t.Error("expected models_hash in fallback path")
-	}
-	if auths[0].Attributes["header:X-API"] != "header-value" {
-		t.Errorf("expected header:X-API=header-value, got %s", auths[0].Attributes["header:X-API"])
-	}
-}
-
-func TestConfigSynthesizer_VertexCompat_WithModels(t *testing.T) {
-	synth := NewConfigSynthesizer()
-	ctx := &SynthesisContext{
-		Config: &config.Config{
-			VertexCompatAPIKey: []config.VertexCompatKey{
-				{
-					APIKey:  "vertex-key",
-					BaseURL: "https://vertex.api",
-					Models: []config.VertexCompatModel{
-						{Name: "gemini-pro", Alias: "pro"},
-						{Name: "gemini-ultra", Alias: "ultra"},
-					},
-				},
-			},
-		},
-		Now:         time.Now(),
-		IDGenerator: NewStableIDGenerator(),
-	}
-
-	auths, err := synth.Synthesize(ctx)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(auths) != 1 {
-		t.Fatalf("expected 1 auth, got %d", len(auths))
-	}
-	if _, ok := auths[0].Attributes["models_hash"]; !ok {
-		t.Error("expected models_hash in vertex auth with models")
-	}
-}
-
 func TestConfigSynthesizer_IDStability(t *testing.T) {
 	cfg := &config.Config{
 		GeminiKey: []config.GeminiKey{
@@ -574,17 +252,8 @@ func TestConfigSynthesizer_AllProviders(t *testing.T) {
 			GeminiKey: []config.GeminiKey{
 				{APIKey: "gemini-key"},
 			},
-			ClaudeKey: []config.ClaudeKey{
-				{APIKey: "claude-key"},
-			},
 			CodexKey: []config.CodexKey{
 				{APIKey: "codex-key"},
-			},
-			OpenAICompatibility: []config.OpenAICompatibility{
-				{Name: "compat", BaseURL: "https://compat.api"},
-			},
-			VertexCompatAPIKey: []config.VertexCompatKey{
-				{APIKey: "vertex-key", BaseURL: "https://vertex.api"},
 			},
 		},
 		Now:         time.Now(),
@@ -595,8 +264,8 @@ func TestConfigSynthesizer_AllProviders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(auths) != 5 {
-		t.Fatalf("expected 5 auths, got %d", len(auths))
+	if len(auths) != 2 {
+		t.Fatalf("expected 2 auths, got %d", len(auths))
 	}
 
 	providers := make(map[string]bool)
@@ -604,7 +273,7 @@ func TestConfigSynthesizer_AllProviders(t *testing.T) {
 		providers[a.Provider] = true
 	}
 
-	expected := []string{"gemini", "claude", "codex", "compat", "vertex"}
+	expected := []string{"gemini", "codex"}
 	for _, p := range expected {
 		if !providers[p] {
 			t.Errorf("expected provider %s not found", p)
