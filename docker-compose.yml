@@ -13,7 +13,7 @@ services:
     ports:
       - "4091:4091"
     volumes:
-      - ./config.yaml:/app/config.yaml
-      - ./auths:/root/.modelgate
+      - ./config.server.yaml:/app/config.yaml
+      - /root/.modelgate:/root/.modelgate
       - ./logs:/app/logs
     restart: unless-stopped
