@@ -385,6 +385,7 @@ func (e *GitHubCopilotExecutor) applyHeaders(r *http.Request, apiToken string) {
 	r.Header.Set("Openai-Intent", copilotOpenAIIntent)
 	r.Header.Set("Copilot-Integration-Id", copilotIntegrationID)
 	r.Header.Set("X-Request-Id", uuid.NewString())
+	r.Header.Set("X-Initiator", "agent")
 }
 
 // normalizeModel is a no-op as GitHub Copilot accepts model names directly.
