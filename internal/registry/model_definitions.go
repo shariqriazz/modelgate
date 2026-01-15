@@ -823,6 +823,7 @@ func GetGitHubCopilotModels() []*ModelInfo {
 			Description:         "OpenAI GPT-5.1 Codex Mini via GitHub Copilot",
 			ContextLength:       128000,
 			MaxCompletionTokens: 128000,
+			Thinking:            &ThinkingSupport{Levels: []string{"low", "medium", "high"}},
 		},
 		{
 			ID:                  "gpt-5.1-codex-max",
@@ -834,6 +835,7 @@ func GetGitHubCopilotModels() []*ModelInfo {
 			Description:         "OpenAI GPT-5.1 Codex Max via GitHub Copilot",
 			ContextLength:       128000,
 			MaxCompletionTokens: 128000,
+			Thinking:            &ThinkingSupport{Levels: []string{"low", "medium", "high", "xhigh"}},
 		},
 		{
 			ID:                  "gpt-5.2",
@@ -845,6 +847,7 @@ func GetGitHubCopilotModels() []*ModelInfo {
 			Description:         "OpenAI GPT-5.2 via GitHub Copilot",
 			ContextLength:       128000,
 			MaxCompletionTokens: 64000,
+			Thinking:            &ThinkingSupport{Levels: []string{"low", "medium", "high", "xhigh"}},
 		},
 		{
 			ID:                  "gpt-5.2-codex",
@@ -856,6 +859,7 @@ func GetGitHubCopilotModels() []*ModelInfo {
 			Description:         "OpenAI GPT-5.2 Codex via GitHub Copilot",
 			ContextLength:       272000,
 			MaxCompletionTokens: 128000,
+			Thinking:            &ThinkingSupport{Levels: []string{"low", "medium", "high", "xhigh"}},
 		},
 		{
 			ID:                  "claude-haiku-4.5",
@@ -867,6 +871,7 @@ func GetGitHubCopilotModels() []*ModelInfo {
 			Description:         "Anthropic Claude Haiku 4.5 via GitHub Copilot",
 			ContextLength:       128000,
 			MaxCompletionTokens: 16000,
+			Thinking:            &ThinkingSupport{Min: 1024, Max: 32000, ZeroAllowed: false, DynamicAllowed: true},
 		},
 		{
 			ID:                  "claude-opus-4.5",
@@ -878,6 +883,7 @@ func GetGitHubCopilotModels() []*ModelInfo {
 			Description:         "Anthropic Claude Opus 4.5 via GitHub Copilot",
 			ContextLength:       128000,
 			MaxCompletionTokens: 16000,
+			Thinking:            &ThinkingSupport{Min: 1024, Max: 32000, ZeroAllowed: false, DynamicAllowed: true},
 		},
 		{
 			ID:                  "claude-sonnet-4.5",
@@ -889,6 +895,7 @@ func GetGitHubCopilotModels() []*ModelInfo {
 			Description:         "Anthropic Claude Sonnet 4.5 via GitHub Copilot",
 			ContextLength:       128000,
 			MaxCompletionTokens: 16000,
+			Thinking:            &ThinkingSupport{Min: 1024, Max: 32000, ZeroAllowed: false, DynamicAllowed: true},
 		},
 		{
 			ID:                  "gemini-3-flash-preview",
