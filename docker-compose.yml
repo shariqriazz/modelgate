@@ -1,7 +1,5 @@
 services:
   modelgate:
-    image: ${CLI_PROXY_IMAGE:-eceasy/modelgate-plus:latest}
-    pull_policy: always
     build:
       context: .
       dockerfile: Dockerfile
@@ -9,20 +7,13 @@ services:
         VERSION: ${VERSION:-dev}
         COMMIT: ${COMMIT:-none}
         BUILD_DATE: ${BUILD_DATE:-unknown}
-    container_name: modelgate-plus
-    # env_file:
-    #   - .env
+    container_name: modelgate
     environment:
       DEPLOY: ${DEPLOY:-}
     ports:
       - "8317:8317"
-      - "8085:8085"
-      - "1455:1455"
-      - "54545:54545"
-      - "51121:51121"
-      - "11451:11451"
     volumes:
-      - ./config.yaml:/ModelGate/config.yaml
+      - ./config.yaml:/app/config.yaml
       - ./auths:/root/.modelgate
-      - ./logs:/ModelGate/logs
+      - ./logs:/app/logs
     restart: unless-stopped
