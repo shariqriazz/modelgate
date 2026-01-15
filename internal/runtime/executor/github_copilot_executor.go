@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -388,9 +389,14 @@ func (e *GitHubCopilotExecutor) applyHeaders(r *http.Request, apiToken string) {
 	r.Header.Set("X-Initiator", "agent")
 }
 
-// normalizeModel is a no-op as GitHub Copilot accepts model names directly.
-// Model mapping should be done at the registry level if needed.
-func (e *GitHubCopilotExecutor) normalizeModel(_ string, body []byte) []byte {
+// normalizeModel strips the "copilot-" prefix from model names before sending to GitHub Copilot API.
+// This allows us to use prefixed model IDs internally (e.g., "copilot-gpt-5.2") to avoid conflicts
+// with other providers while still sending the correct model name to GitHub Copilot.
+func (e *GitHubCopilotExecutor) normalizeModel(model string, body []byte) []byte {
+	normalized := strings.TrimPrefix(model, "copilot-")
+	if normalized != model {
+		body, _ = sjson.SetBytes(body, "model", normalized)
+	}
 	return body
 }
 
