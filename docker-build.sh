@@ -20,7 +20,7 @@ get_port() {
   if [[ -f "config.yaml" ]]; then
     grep -E "^port:" config.yaml | sed -E 's/^port: *["'"'"']?([0-9]+)["'"'"']?.*$/\1/'
   else
-    echo "8317"
+    echo "4091"
   fi
 }
 

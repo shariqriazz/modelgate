@@ -11,7 +11,7 @@ services:
     environment:
       DEPLOY: ${DEPLOY:-}
     ports:
-      - "8317:8317"
+      - "4091:4091"
     volumes:
       - ./config.yaml:/app/config.yaml
       - ./auths:/root/.modelgate

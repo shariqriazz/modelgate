@@ -26,7 +26,7 @@ COPY config.example.yaml /ModelGate/config.example.yaml
 
 WORKDIR /ModelGate
 
-EXPOSE 8317
+EXPOSE 4091
 
 ENV TZ=Asia/Shanghai
 
