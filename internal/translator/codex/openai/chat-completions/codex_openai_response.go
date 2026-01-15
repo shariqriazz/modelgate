@@ -166,14 +166,23 @@ func ConvertCodexResponseToOpenAI(_ context.Context, modelName string, originalR
 //   - string: An OpenAI-compatible JSON response containing all message content and metadata
 func ConvertCodexResponseToOpenAINonStream(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) string {
 	rootResult := gjson.ParseBytes(rawJSON)
-	// Verify this is a response.completed event
-	if rootResult.Get("type").String() != "response.completed" {
+
+	// Determine the response object - handle both formats:
+	// 1. Codex streaming format: {"type": "response.completed", "response": {...}}
+	// 2. GitHub Copilot direct format: {"output": [...], "status": "completed", ...}
+	var responseResult gjson.Result
+	if rootResult.Get("type").String() == "response.completed" {
+		// Codex streaming format - response is nested
+		responseResult = rootResult.Get("response")
+	} else if rootResult.Get("output").Exists() || rootResult.Get("status").Exists() {
+		// GitHub Copilot direct format - response is the root object
+		responseResult = rootResult
+	} else {
+		// Unknown format
 		return ""
 	}
 
 	unixTimestamp := time.Now().Unix()
-
-	responseResult := rootResult.Get("response")
 
 	template := `{"id":"","object":"chat.completion","created":123456,"model":"model","choices":[{"index":0,"message":{"role":"assistant","content":null,"reasoning_content":null,"tool_calls":null},"finish_reason":null,"native_finish_reason":null}]}`
 
