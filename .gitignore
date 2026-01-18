@@ -26,9 +26,7 @@ static/*
 auths/*
 !auths/.gitkeep
 
-# Documentation
-docs/*
-AGENTS.md
+# Legacy docs (keep specific agent files ignored)
 CLAUDE.md
 GEMINI.md
 
