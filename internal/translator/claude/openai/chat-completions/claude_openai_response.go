@@ -27,6 +27,8 @@ type ConvertAnthropicResponseToOpenAIParams struct {
 	FinishReason string
 	// Tool calls accumulator for streaming
 	ToolCallsAccumulator map[int]*ToolCallAccumulator
+	// Track whether a thinking block is active
+	ThinkingActive bool
 }
 
 // ToolCallAccumulator holds the state for accumulating tool call data
@@ -112,6 +114,10 @@ func ConvertClaudeResponseToOpenAI(_ context.Context, modelName string, original
 		if contentBlock := root.Get("content_block"); contentBlock.Exists() {
 			blockType := contentBlock.Get("type").String()
 
+			if blockType == "thinking" {
+				(*param).(*ConvertAnthropicResponseToOpenAIParams).ThinkingActive = true
+				return []string{}
+			}
 			if blockType == "tool_use" {
 				// Start of tool call - initialize accumulator to track arguments
 				toolCallID := contentBlock.Get("id").String()
@@ -156,6 +162,13 @@ func ConvertClaudeResponseToOpenAI(_ context.Context, modelName string, original
 				// Tool use input delta - accumulate arguments for tool calls
 				if partialJSON := delta.Get("partial_json"); partialJSON.Exists() {
 					index := int(root.Get("index").Int())
+					if contentBlock := root.Get("content_block"); contentBlock.Exists() {
+						if contentBlock.Get("type").String() == "thinking" {
+							(*param).(*ConvertAnthropicResponseToOpenAIParams).ThinkingActive = false
+							template, _ = sjson.Set(template, "choices.0.delta.reasoning_content", "\n\n")
+							return []string{template}
+						}
+					}
 					if (*param).(*ConvertAnthropicResponseToOpenAIParams).ToolCallsAccumulator != nil {
 						if accumulator, exists := (*param).(*ConvertAnthropicResponseToOpenAIParams).ToolCallsAccumulator[index]; exists {
 							accumulator.Arguments.WriteString(partialJSON.String())
