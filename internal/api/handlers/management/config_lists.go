@@ -1363,3 +1363,85 @@ func normalizeAPIKeysList(keys []string) []string {
 	}
 	return out
 }
+
+// --- Compatibility Handlers for oauth-model-alias (New UI Support) ---
+
+func (h *Handler) GetOAuthModelAlias(c *gin.Context) {
+	c.JSON(200, gin.H{"oauth-model-alias": sanitizedOAuthModelMappings(h.cfg.OAuthModelMappings)})
+}
+
+func (h *Handler) PutOAuthModelAlias(c *gin.Context) {
+	// Re-use existing Put logic but read/write to the same config field
+	// The struct is compatible.
+	data, err := c.GetRawData()
+	if err != nil {
+		c.JSON(400, gin.H{"error": "failed to read body"})
+		return
+	}
+	var entries map[string][]config.ModelNameMapping
+	if err = json.Unmarshal(data, &entries); err != nil {
+		var wrapper struct {
+			Items map[string][]config.ModelNameMapping `json:"items"`
+		}
+		if err2 := json.Unmarshal(data, &wrapper); err2 != nil {
+			c.JSON(400, gin.H{"error": "invalid body"})
+			return
+		}
+		entries = wrapper.Items
+	}
+	h.cfg.OAuthModelMappings = sanitizedOAuthModelMappings(entries)
+	h.persist(c)
+}
+
+func (h *Handler) PatchOAuthModelAlias(c *gin.Context) {
+	// Supports new UI payload structure: {"aliases": [...]} instead of {"mappings": [...]}
+	var body struct {
+		Provider *string                   `json:"provider"`
+		Channel  *string                   `json:"channel"`
+		Aliases  []config.ModelNameMapping `json:"aliases"`
+	}
+	if errBindJSON := c.ShouldBindJSON(&body); errBindJSON != nil {
+		c.JSON(400, gin.H{"error": "invalid body"})
+		return
+	}
+	channelRaw := ""
+	if body.Channel != nil {
+		channelRaw = *body.Channel
+	} else if body.Provider != nil {
+		channelRaw = *body.Provider
+	}
+	channel := strings.ToLower(strings.TrimSpace(channelRaw))
+	if channel == "" {
+		c.JSON(400, gin.H{"error": "invalid channel"})
+		return
+	}
+
+	normalizedMap := sanitizedOAuthModelMappings(map[string][]config.ModelNameMapping{channel: body.Aliases})
+	normalized := normalizedMap[channel]
+	if len(normalized) == 0 {
+		if h.cfg.OAuthModelMappings == nil {
+			c.JSON(404, gin.H{"error": "channel not found"})
+			return
+		}
+		if _, ok := h.cfg.OAuthModelMappings[channel]; !ok {
+			c.JSON(404, gin.H{"error": "channel not found"})
+			return
+		}
+		delete(h.cfg.OAuthModelMappings, channel)
+		if len(h.cfg.OAuthModelMappings) == 0 {
+			h.cfg.OAuthModelMappings = nil
+		}
+		h.persist(c)
+		return
+	}
+	if h.cfg.OAuthModelMappings == nil {
+		h.cfg.OAuthModelMappings = make(map[string][]config.ModelNameMapping)
+	}
+	h.cfg.OAuthModelMappings[channel] = normalized
+	h.persist(c)
+}
+
+func (h *Handler) DeleteOAuthModelAlias(c *gin.Context) {
+	// Re-use existing Delete logic
+	h.DeleteOAuthModelMappings(c)
+}
