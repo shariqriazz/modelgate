@@ -52,12 +52,12 @@ const (
 	// Empty response retry configuration
 	// Used by helper functions: isBare429, attemptJSONRepair, checkForMalformedFunctionCall
 	// These can be integrated into ExecuteStream for enhanced resilience
-	emptyResponseMaxAttempts = 6
+	emptyResponseMaxAttempts = 1
 	emptyResponseRetryDelay  = 3 * time.Second
 
 	// Malformed function call retry configuration
 	// When Gemini 3 returns MALFORMED_FUNCTION_CALL, use attemptJSONRepair to auto-fix
-	malformedCallMaxRetries = 2
+	malformedCallMaxRetries = 1
 	malformedCallRetryDelay = 1 * time.Second
 )
 
