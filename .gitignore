@@ -2,10 +2,8 @@
 cli-proxy-api
 cliproxy
 *.exe
-
+modelgate
 # Configuration
-config.yaml
-config.server.yaml
 .env
 
 # Generated content
