@@ -176,6 +176,7 @@ func (s *Service) handleAuthUpdate(ctx context.Context, update watcher.AuthUpdat
 	if cfg == nil || s.coreManager == nil {
 		return
 	}
+	ctx = coreauth.WithSkipPersist(ctx)
 	switch update.Action {
 	case watcher.AuthUpdateActionAdd, watcher.AuthUpdateActionModify:
 		if update.Auth == nil || update.Auth.ID == "" {

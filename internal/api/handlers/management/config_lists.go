@@ -1419,10 +1419,6 @@ func (h *Handler) PatchOAuthModelAlias(c *gin.Context) {
 	normalizedMap := sanitizedOAuthModelMappings(map[string][]config.ModelNameMapping{channel: body.Aliases})
 	normalized := normalizedMap[channel]
 	if len(normalized) == 0 {
-		if h.cfg.OAuthModelMappings == nil {
-			c.JSON(404, gin.H{"error": "channel not found"})
-			return
-		}
 		if _, ok := h.cfg.OAuthModelMappings[channel]; !ok {
 			c.JSON(404, gin.H{"error": "channel not found"})
 			return

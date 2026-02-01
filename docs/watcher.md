@@ -102,6 +102,8 @@ When a `storePersister` is available (`clients.go:202-228`):
 - Config changes trigger `PersistConfig()`
 - Auth changes trigger `PersistAuthFiles()` with commit message
 - Operations run asynchronously with 30-second timeout
+- Core auth updates sourced from the watcher are applied with `WithSkipPersist` to avoid
+  persisting auth records back to disk and re-triggering file watcher loops.
 
 ## Cross-Platform Support
 

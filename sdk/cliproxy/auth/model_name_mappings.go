@@ -99,12 +99,13 @@ func resolveUpstreamModelFromAliasTable(m *Manager, auth *Auth, requestedModel, 
 		return ""
 	}
 
-	// Extract thinking suffix from requested model
-	baseModel, _ := util.NormalizeThinkingModel(requestedModel)
+	// Extract thinking suffix from requested model. NormalizeThinkingModel only
+	// returns metadata for "(...)" suffixes; keep other suffixes unchanged.
+	baseModel, metadata := util.NormalizeThinkingModel(requestedModel)
 
-	// Determine suffix (if any) to preserve
+	// Determine suffix (if any) to preserve for thinking suffixes only.
 	suffix := ""
-	if len(requestedModel) > len(baseModel) {
+	if metadata != nil && len(requestedModel) > len(baseModel) {
 		suffix = requestedModel[len(baseModel):]
 	}
 
