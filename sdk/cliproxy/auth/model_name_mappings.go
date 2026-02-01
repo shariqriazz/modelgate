@@ -88,17 +88,33 @@ func (m *Manager) applyOAuthModelMapping(auth *Auth, requestedModel string, meta
 }
 
 func (m *Manager) resolveOAuthUpstreamModel(auth *Auth, requestedModel string) string {
+	return resolveUpstreamModelFromAliasTable(m, auth, requestedModel, modelMappingChannel(auth))
+}
+
+func resolveUpstreamModelFromAliasTable(m *Manager, auth *Auth, requestedModel, channel string) string {
 	if m == nil || auth == nil {
 		return ""
 	}
-	channel := modelMappingChannel(auth)
 	if channel == "" {
 		return ""
 	}
-	key := strings.ToLower(strings.TrimSpace(requestedModel))
-	if key == "" {
-		return ""
+
+	// Extract thinking suffix from requested model. NormalizeThinkingModel only
+	// returns metadata for "(...)" suffixes; keep other suffixes unchanged.
+	baseModel, metadata := util.NormalizeThinkingModel(requestedModel)
+
+	// Determine suffix (if any) to preserve for thinking suffixes only.
+	suffix := ""
+	if metadata != nil && len(requestedModel) > len(baseModel) {
+		suffix = requestedModel[len(baseModel):]
 	}
+
+	// Candidate keys to match: base model and raw input
+	candidates := []string{baseModel}
+	if baseModel != requestedModel {
+		candidates = append(candidates, requestedModel)
+	}
+
 	raw := m.modelNameMappings.Load()
 	table, _ := raw.(*modelNameMappingTable)
 	if table == nil || table.reverse == nil {
@@ -108,11 +124,33 @@ func (m *Manager) resolveOAuthUpstreamModel(auth *Auth, requestedModel string) s
 	if rev == nil {
 		return ""
 	}
-	original := strings.TrimSpace(rev[key])
-	if original == "" || strings.EqualFold(original, requestedModel) {
-		return ""
+
+	for _, candidate := range candidates {
+		key := strings.ToLower(strings.TrimSpace(candidate))
+		if key == "" {
+			continue
+		}
+		original := strings.TrimSpace(rev[key])
+		if original == "" {
+			continue
+		}
+		if strings.EqualFold(original, baseModel) {
+			return ""
+		}
+
+		// If config alias mapping target (original) already has suffix, it takes priority.
+		originalBase, _ := util.NormalizeThinkingModel(original)
+		if original != originalBase {
+			return original
+		}
+		// Preserve user's thinking suffix on the resolved model.
+		if suffix != "" {
+			return original + suffix
+		}
+		return original
 	}
-	return original
+
+	return ""
 }
 
 // modelMappingChannel extracts the OAuth model mapping channel from an Auth object.

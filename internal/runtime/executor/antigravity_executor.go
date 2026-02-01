@@ -48,17 +48,6 @@ const (
 	antigravityAuthType            = "antigravity"
 	refreshSkew                    = 3000 * time.Second
 	systemInstruction              = "You are Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team working on Advanced Agentic Coding.You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.**Absolute paths only****Proactiveness**"
-
-	// Empty response retry configuration
-	// Used by helper functions: isBare429, attemptJSONRepair, checkForMalformedFunctionCall
-	// These can be integrated into ExecuteStream for enhanced resilience
-	emptyResponseMaxAttempts = 1
-	emptyResponseRetryDelay  = 3 * time.Second
-
-	// Malformed function call retry configuration
-	// When Gemini 3 returns MALFORMED_FUNCTION_CALL, use attemptJSONRepair to auto-fix
-	malformedCallMaxRetries = 1
-	malformedCallRetryDelay = 1 * time.Second
 )
 
 var (
@@ -778,8 +767,11 @@ func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *modelgate
 	baseURLs := antigravityBaseURLFallbackOrder(auth)
 	httpClient := newProxyAwareHTTPClient(ctx, e.cfg, auth, 0)
 
+	attempts := antigravityRetryAttempts(auth, e.cfg)
+
 	// Outer retry loop for empty responses, bare 429s, and malformed function calls
-	for attempt := 0; attempt < emptyResponseMaxAttempts; attempt++ {
+attemptLoop:
+	for attempt := 0; attempt < attempts; attempt++ {
 		var lastStatus int
 		var lastBody []byte
 		var lastErr error
@@ -842,12 +834,31 @@ func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *modelgate
 
 				// Handle 429 responses
 				if httpResp.StatusCode == http.StatusTooManyRequests {
+					// Check for "bare" 429 (transient rate limit without retry-after)
 					if isBare429(httpResp.StatusCode, bodyBytes) {
-						if attempt < emptyResponseMaxAttempts-1 {
+						if attempt < attempts-1 {
+							delay := antigravityNoCapacityRetryDelay(attempt)
 							log.Warnf("antigravity executor: bare 429 from %s, attempt %d/%d, retrying in %v...",
-								req.Model, attempt+1, emptyResponseMaxAttempts, emptyResponseRetryDelay)
-							time.Sleep(emptyResponseRetryDelay)
-							break // Break inner loop, continue outer retry
+								req.Model, attempt+1, attempts, delay)
+							if errWait := antigravityWait(ctx, delay); errWait != nil {
+								return nil, errWait
+							}
+							continue attemptLoop // Break inner loop, continue outer retry
+						}
+					}
+					// Check for "no capacity" message (specific error)
+					if antigravityShouldRetryNoCapacity(httpResp.StatusCode, bodyBytes) {
+						if idx+1 < len(baseURLs) {
+							log.Debugf("antigravity executor: no capacity on base url %s, retrying with fallback base url: %s", baseURL, baseURLs[idx+1])
+							continue
+						}
+						if attempt < attempts-1 {
+							delay := antigravityNoCapacityRetryDelay(attempt)
+							log.Debugf("antigravity executor: no capacity for model %s, retrying in %s (attempt %d/%d)", req.Model, delay, attempt+1, attempts)
+							if errWait := antigravityWait(ctx, delay); errWait != nil {
+								return nil, errWait
+							}
+							continue attemptLoop
 						}
 					}
 					if idx+1 < len(baseURLs) {
@@ -871,15 +882,18 @@ func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *modelgate
 			validation := e.validateStreamStart(ctx, httpResp, to, from, req.Model,
 				bytes.Clone(opts.OriginalRequest), translated, &param, reporter)
 
-			// Check if we need to retry
-			if validation.needsRetry && attempt < emptyResponseMaxAttempts-1 {
+			// Check if we need to retry (empty response or malformed call)
+			if validation.needsRetry && attempt < attempts-1 {
+				delay := antigravityNoCapacityRetryDelay(attempt)
 				log.Warnf("antigravity executor: %s detected from %s, attempt %d/%d, retrying in %v...",
-					validation.retryReason, req.Model, attempt+1, emptyResponseMaxAttempts, emptyResponseRetryDelay)
+					validation.retryReason, req.Model, attempt+1, attempts, delay)
 				if errClose := httpResp.Body.Close(); errClose != nil {
 					log.Debugf("antigravity executor: close body on retry: %v", errClose)
 				}
-				time.Sleep(emptyResponseRetryDelay)
-				break // Break inner loop, continue outer retry
+				if errWait := antigravityWait(ctx, delay); errWait != nil {
+					return nil, errWait
+				}
+				continue attemptLoop // Break inner loop, continue outer retry
 			}
 
 			// Validation passed or max retries reached - return the stream
@@ -958,7 +972,7 @@ func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *modelgate
 			return stream, nil
 		}
 
-		// If bare 429 triggered break, continue outer loop
+		// If bare 429 triggered break, continue outer loop (fallback to attemptLoop label)
 		if lastStatus == http.StatusTooManyRequests && isBare429(lastStatus, lastBody) {
 			continue
 		}
@@ -1568,6 +1582,62 @@ func resolveUserAgent(auth *modelgateauth.Auth) string {
 		}
 	}
 	return defaultAntigravityAgent
+}
+
+func antigravityRetryAttempts(auth *modelgateauth.Auth, cfg *config.Config) int {
+	retry := 0
+	if cfg != nil {
+		retry = cfg.RequestRetry
+	}
+	if auth != nil {
+		if override, ok := auth.RequestRetryOverride(); ok {
+			retry = override
+		}
+	}
+	if retry < 0 {
+		retry = 0
+	}
+	attempts := retry + 1
+	if attempts < 1 {
+		return 1
+	}
+	return attempts
+}
+
+func antigravityShouldRetryNoCapacity(statusCode int, body []byte) bool {
+	if statusCode != http.StatusServiceUnavailable {
+		return false
+	}
+	if len(body) == 0 {
+		return false
+	}
+	msg := strings.ToLower(string(body))
+	return strings.Contains(msg, "no capacity available")
+}
+
+func antigravityNoCapacityRetryDelay(attempt int) time.Duration {
+	if attempt < 0 {
+		attempt = 0
+	}
+	delay := time.Duration(attempt+1) * 250 * time.Millisecond
+	if delay > 2*time.Second {
+		delay = 2 * time.Second
+	}
+	return delay
+}
+
+func antigravityWait(ctx context.Context, wait time.Duration) error {
+	if wait <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func antigravityBaseURLFallbackOrder(auth *modelgateauth.Auth) []string {

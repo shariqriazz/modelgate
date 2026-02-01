@@ -3,10 +3,103 @@
 // when registering their supported models.
 package registry
 
+import (
+	"sort"
+	"strings"
+)
+
+// GetStaticModelDefinitionsByChannel returns static model definitions for a given channel/provider.
+// It returns nil when the channel is unknown.
+func GetStaticModelDefinitionsByChannel(channel string) []*ModelInfo {
+	key := strings.ToLower(strings.TrimSpace(channel))
+	switch key {
+	case "claude":
+		return GetClaudeModels()
+	case "gemini":
+		return GetGeminiModels()
+	case "vertex":
+		return GetGeminiVertexModels()
+	case "gemini-cli":
+		return GetGeminiCLIModels()
+	case "aistudio":
+		return GetAIStudioModels()
+	case "codex":
+		return GetOpenAIModels()
+	case "qwen":
+		return GetQwenModels()
+	case "iflow":
+		return GetIFlowModels()
+	case "antigravity":
+		cfg := GetAntigravityModelConfig()
+		if len(cfg) == 0 {
+			return nil
+		}
+		models := make([]*ModelInfo, 0, len(cfg))
+		for modelID, entry := range cfg {
+			if modelID == "" || entry == nil {
+				continue
+			}
+			models = append(models, &ModelInfo{
+				ID:                  modelID,
+				Object:              "model",
+				OwnedBy:             "antigravity",
+				Type:                "antigravity",
+				Thinking:            entry.Thinking,
+				MaxCompletionTokens: entry.MaxCompletionTokens,
+			})
+		}
+		sort.Slice(models, func(i, j int) bool {
+			return strings.ToLower(models[i].ID) < strings.ToLower(models[j].ID)
+		})
+		return models
+	default:
+		return nil
+	}
+}
+
+// LookupStaticModelInfo searches all static model definitions for a model by ID.
+// Returns nil if no matching model is found.
+func LookupStaticModelInfo(modelID string) *ModelInfo {
+	if modelID == "" {
+		return nil
+	}
+
+	allModels := [][]*ModelInfo{
+		GetClaudeModels(),
+		GetGeminiModels(),
+		GetGeminiVertexModels(),
+		GetGeminiCLIModels(),
+		GetAIStudioModels(),
+		GetOpenAIModels(),
+		GetQwenModels(),
+		GetIFlowModels(),
+		GetGitHubCopilotModels(),
+		GetKiroModels(),
+		GetAmazonQModels(),
+	}
+	for _, models := range allModels {
+		for _, m := range models {
+			if m != nil && m.ID == modelID {
+				return m
+			}
+		}
+	}
+
+	// Check Antigravity static config
+	if cfg := GetAntigravityModelConfig()[modelID]; cfg != nil {
+		return &ModelInfo{
+			ID:                  modelID,
+			Thinking:            cfg.Thinking,
+			MaxCompletionTokens: cfg.MaxCompletionTokens,
+		}
+	}
+
+	return nil
+}
+
 // GetClaudeModels returns the standard Claude model definitions
 func GetClaudeModels() []*ModelInfo {
 	return []*ModelInfo{
-
 		{
 			ID:                  "claude-haiku-4-5-20251001",
 			Object:              "model",
@@ -287,6 +380,67 @@ func GetGeminiVertexModels() []*ModelInfo {
 			SupportedGenerationMethods: []string{"generateContent", "countTokens", "createCachedContent", "batchGenerateContent"},
 			Thinking:                   &ThinkingSupport{Min: 128, Max: 32768, ZeroAllowed: false, DynamicAllowed: true, Levels: []string{"low", "high"}},
 		},
+		// Imagen image generation models - use :predict action
+		{
+			ID:                         "imagen-4.0-generate-001",
+			Object:                     "model",
+			Created:                    1750000000,
+			OwnedBy:                    "google",
+			Type:                       "gemini",
+			Name:                       "models/imagen-4.0-generate-001",
+			Version:                    "4.0",
+			DisplayName:                "Imagen 4.0 Generate",
+			Description:                "Imagen 4.0 image generation model",
+			SupportedGenerationMethods: []string{"predict"},
+		},
+		{
+			ID:                         "imagen-4.0-ultra-generate-001",
+			Object:                     "model",
+			Created:                    1750000000,
+			OwnedBy:                    "google",
+			Type:                       "gemini",
+			Name:                       "models/imagen-4.0-ultra-generate-001",
+			Version:                    "4.0",
+			DisplayName:                "Imagen 4.0 Ultra Generate",
+			Description:                "Imagen 4.0 Ultra high-quality image generation model",
+			SupportedGenerationMethods: []string{"predict"},
+		},
+		{
+			ID:                         "imagen-3.0-generate-002",
+			Object:                     "model",
+			Created:                    1740000000,
+			OwnedBy:                    "google",
+			Type:                       "gemini",
+			Name:                       "models/imagen-3.0-generate-002",
+			Version:                    "3.0",
+			DisplayName:                "Imagen 3.0 Generate",
+			Description:                "Imagen 3.0 image generation model",
+			SupportedGenerationMethods: []string{"predict"},
+		},
+		{
+			ID:                         "imagen-3.0-fast-generate-001",
+			Object:                     "model",
+			Created:                    1740000000,
+			OwnedBy:                    "google",
+			Type:                       "gemini",
+			Name:                       "models/imagen-3.0-fast-generate-001",
+			Version:                    "3.0",
+			DisplayName:                "Imagen 3.0 Fast Generate",
+			Description:                "Imagen 3.0 fast image generation model",
+			SupportedGenerationMethods: []string{"predict"},
+		},
+		{
+			ID:                         "imagen-4.0-fast-generate-001",
+			Object:                     "model",
+			Created:                    1750000000,
+			OwnedBy:                    "google",
+			Type:                       "gemini",
+			Name:                       "models/imagen-4.0-fast-generate-001",
+			Version:                    "4.0",
+			DisplayName:                "Imagen 4.0 Fast Generate",
+			Description:                "Imagen 4.0 fast image generation model",
+			SupportedGenerationMethods: []string{"predict"},
+		},
 	}
 }
 
@@ -443,7 +597,7 @@ func GetAIStudioModels() []*ModelInfo {
 			Name:                       "models/gemini-3-flash-preview",
 			Version:                    "3.0",
 			DisplayName:                "Gemini 3 Flash Preview",
-			Description:                "Our most intelligent model built for speed, combining frontier intelligence with superior search and grounding.",
+			Description:                "Gemini 3 Flash Preview",
 			InputTokenLimit:            1048576,
 			OutputTokenLimit:           65536,
 			SupportedGenerationMethods: []string{"generateContent", "countTokens", "createCachedContent", "batchGenerateContent"},
@@ -724,7 +878,7 @@ func GetIFlowModels() []*ModelInfo {
 		{ID: "qwen3-coder-plus", DisplayName: "Qwen3-Coder-Plus", Description: "Qwen3 Coder Plus code generation", Created: 1753228800},
 		{ID: "qwen3-max", DisplayName: "Qwen3-Max", Description: "Qwen3 flagship model", Created: 1758672000},
 		{ID: "qwen3-vl-plus", DisplayName: "Qwen3-VL-Plus", Description: "Qwen3 multimodal vision-language", Created: 1758672000},
-		{ID: "qwen3-max-preview", DisplayName: "Qwen3-Max-Preview", Description: "Qwen3 Max preview build", Created: 1757030400},
+		{ID: "qwen3-max-preview", DisplayName: "Qwen3-Max-Preview", Description: "Qwen3 Max preview build", Created: 1757030400, Thinking: iFlowThinkingSupport},
 		{ID: "kimi-k2-0905", DisplayName: "Kimi-K2-Instruct-0905", Description: "Moonshot Kimi K2 instruct 0905", Created: 1757030400},
 		{ID: "glm-4.6", DisplayName: "GLM-4.6", Description: "Zhipu GLM 4.6 general model", Created: 1759190400, Thinking: iFlowThinkingSupport},
 		{ID: "glm-4.7", DisplayName: "GLM-4.7", Description: "Zhipu GLM 4.7 general model", Created: 1766448000, Thinking: iFlowThinkingSupport},
@@ -732,8 +886,8 @@ func GetIFlowModels() []*ModelInfo {
 		{ID: "kimi-k2-thinking", DisplayName: "Kimi-K2-Thinking", Description: "Moonshot Kimi K2 thinking model", Created: 1762387200},
 		{ID: "deepseek-v3.2-chat", DisplayName: "DeepSeek-V3.2", Description: "DeepSeek V3.2 Chat", Created: 1764576000},
 		{ID: "deepseek-v3.2-reasoner", DisplayName: "DeepSeek-V3.2", Description: "DeepSeek V3.2 Reasoner", Created: 1764576000},
-		{ID: "deepseek-v3.2", DisplayName: "DeepSeek-V3.2-Exp", Description: "DeepSeek V3.2 experimental", Created: 1759104000},
-		{ID: "deepseek-v3.1", DisplayName: "DeepSeek-V3.1-Terminus", Description: "DeepSeek V3.1 Terminus", Created: 1756339200},
+		{ID: "deepseek-v3.2", DisplayName: "DeepSeek-V3.2-Exp", Description: "DeepSeek V3.2 experimental", Created: 1759104000, Thinking: iFlowThinkingSupport},
+		{ID: "deepseek-v3.1", DisplayName: "DeepSeek-V3.1-Terminus", Description: "DeepSeek V3.1 Terminus", Created: 1756339200, Thinking: iFlowThinkingSupport},
 		{ID: "deepseek-r1", DisplayName: "DeepSeek-R1", Description: "DeepSeek reasoning model R1", Created: 1737331200},
 		{ID: "deepseek-v3", DisplayName: "DeepSeek-V3-671B", Description: "DeepSeek V3 671B", Created: 1734307200},
 		{ID: "qwen3-32b", DisplayName: "Qwen3-32B", Description: "Qwen3 32B", Created: 1747094400},
@@ -742,6 +896,7 @@ func GetIFlowModels() []*ModelInfo {
 		{ID: "qwen3-235b", DisplayName: "Qwen3-235B-A22B", Description: "Qwen3 235B A22B", Created: 1753401600},
 		{ID: "minimax-m2", DisplayName: "MiniMax-M2", Description: "MiniMax M2", Created: 1758672000, Thinking: iFlowThinkingSupport},
 		{ID: "minimax-m2.1", DisplayName: "MiniMax-M2.1", Description: "MiniMax M2.1", Created: 1766448000, Thinking: iFlowThinkingSupport},
+		{ID: "iflow-rome-30ba3b", DisplayName: "iFlow-ROME", Description: "iFlow Rome 30BA3B model", Created: 1736899200},
 	}
 	models := make([]*ModelInfo, 0, len(entries))
 	for _, entry := range entries {
@@ -780,32 +935,6 @@ func GetAntigravityModelConfig() map[string]*AntigravityModelConfig {
 		"gemini-claude-sonnet-4-5-thinking":       {Thinking: &ThinkingSupport{Min: 1024, Max: 200000, ZeroAllowed: false, DynamicAllowed: true}, MaxCompletionTokens: 64000},
 		"gemini-claude-opus-4-5-thinking":         {Thinking: &ThinkingSupport{Min: 1024, Max: 200000, ZeroAllowed: false, DynamicAllowed: true}, MaxCompletionTokens: 64000},
 	}
-}
-
-// LookupStaticModelInfo searches all static model definitions for a model by ID.
-// Returns nil if no matching model is found.
-func LookupStaticModelInfo(modelID string) *ModelInfo {
-	if modelID == "" {
-		return nil
-	}
-	allModels := [][]*ModelInfo{
-		GetClaudeModels(),
-		GetGeminiModels(),
-		GetGeminiVertexModels(),
-		GetGeminiCLIModels(),
-		GetAIStudioModels(),
-		GetOpenAIModels(),
-		GetQwenModels(),
-		GetIFlowModels(),
-	}
-	for _, models := range allModels {
-		for _, m := range models {
-			if m != nil && m.ID == modelID {
-				return m
-			}
-		}
-	}
-	return nil
 }
 
 // GetGitHubCopilotModels returns the available models for GitHub Copilot.
@@ -929,8 +1058,8 @@ func GetGitHubCopilotModels() []*ModelInfo {
 			Type:                "github-copilot",
 			DisplayName:         "GitHub Copilot Grok Code Fast 1",
 			Description:         "xAI Grok Code Fast 1 via GitHub Copilot",
-			ContextLength:       109000,
-			MaxCompletionTokens: 64000,
+			ContextLength:       128000,
+			MaxCompletionTokens: 16384,
 		},
 		{
 			ID:                  "copilot-raptor-mini",
@@ -950,6 +1079,18 @@ func GetGitHubCopilotModels() []*ModelInfo {
 func GetKiroModels() []*ModelInfo {
 	return []*ModelInfo{
 		// --- Base Models ---
+		{
+			ID:                  "kiro-auto",
+			Object:              "model",
+			Created:             1732752000,
+			OwnedBy:             "aws",
+			Type:                "kiro",
+			DisplayName:         "Kiro Auto",
+			Description:         "Automatic model selection by Kiro",
+			ContextLength:       200000,
+			MaxCompletionTokens: 64000,
+			Thinking:            &ThinkingSupport{Min: 1024, Max: 32000, ZeroAllowed: true, DynamicAllowed: true},
+		},
 		{
 			ID:                  "kiro-claude-opus-4-5",
 			Object:              "model",

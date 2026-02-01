@@ -375,3 +375,101 @@ func normaliseUnix(raw int64) time.Time {
 	}
 	return time.Unix(raw, 0)
 }
+
+// RequestRetryOverride returns the request retry count override if configured for this auth.
+// Checks "request_retry" or "requestRetry" in metadata/attributes.
+func (a *Auth) RequestRetryOverride() (int, bool) {
+	if a == nil {
+		return 0, false
+	}
+	if v, ok := lookupInt(a.Metadata, a.Attributes, "request_retry", "requestRetry"); ok {
+		return v, true
+	}
+	return 0, false
+}
+
+// DisableCoolingOverride returns the disable cooling override if configured for this auth.
+// Checks "disable_cooling" or "disableCooling" in metadata/attributes.
+func (a *Auth) DisableCoolingOverride() (bool, bool) {
+	if a == nil {
+		return false, false
+	}
+	if v, ok := lookupBool(a.Metadata, a.Attributes, "disable_cooling", "disableCooling"); ok {
+		return v, true
+	}
+	return false, false
+}
+
+func lookupInt(meta map[string]any, attrs map[string]string, keys ...string) (int, bool) {
+	for _, key := range keys {
+		if meta != nil {
+			if v, ok := meta[key]; ok {
+				if i, okInt := toInt(v); okInt {
+					return i, true
+				}
+			}
+		}
+		if attrs != nil {
+			if v, ok := attrs[key]; ok {
+				if i, okInt := toInt(v); okInt {
+					return i, true
+				}
+			}
+		}
+	}
+	return 0, false
+}
+
+func lookupBool(meta map[string]any, attrs map[string]string, keys ...string) (bool, bool) {
+	for _, key := range keys {
+		if meta != nil {
+			if v, ok := meta[key]; ok {
+				if b, okBool := toBool(v); okBool {
+					return b, true
+				}
+			}
+		}
+		if attrs != nil {
+			if v, ok := attrs[key]; ok {
+				if b, okBool := toBool(v); okBool {
+					return b, true
+				}
+			}
+		}
+	}
+	return false, false
+}
+
+func toInt(v any) (int, bool) {
+	switch val := v.(type) {
+	case int:
+		return val, true
+	case int32:
+		return int(val), true
+	case int64:
+		return int(val), true
+	case float64:
+		return int(val), true
+	case string:
+		if i, err := strconv.Atoi(strings.TrimSpace(val)); err == nil {
+			return i, true
+		}
+	case json.Number:
+		if i, err := val.Int64(); err == nil {
+			return int(i), true
+		}
+	}
+	return 0, false
+}
+
+func toBool(v any) (bool, bool) {
+	switch val := v.(type) {
+	case bool:
+		return val, true
+	case string:
+		if b, err := strconv.ParseBool(strings.TrimSpace(val)); err == nil {
+			return b, true
+		}
+	}
+	return false, false
+}
