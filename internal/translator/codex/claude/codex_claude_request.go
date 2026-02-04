@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shariqriazz/modelgate/internal/misc"
 	"github.com/shariqriazz/modelgate/internal/util"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -37,12 +36,8 @@ import (
 //   - []byte: The transformed request data in internal client format
 func ConvertClaudeRequestToCodex(modelName string, inputRawJSON []byte, _ bool) []byte {
 	rawJSON := bytes.Clone(inputRawJSON)
-	userAgent := misc.ExtractCodexUserAgent(rawJSON)
 
 	template := `{"model":"","instructions":"","input":[]}`
-
-	_, instructions := misc.CodexInstructionsForModel(modelName, "", userAgent)
-	template, _ = sjson.Set(template, "instructions", instructions)
 
 	rootResult := gjson.ParseBytes(rawJSON)
 	template, _ = sjson.Set(template, "model", modelName)
@@ -51,7 +46,7 @@ func ConvertClaudeRequestToCodex(modelName string, inputRawJSON []byte, _ bool) 
 	systemsResult := rootResult.Get("system")
 	if systemsResult.IsArray() {
 		systemResults := systemsResult.Array()
-		message := `{"type":"message","role":"user","content":[]}`
+		message := `{"type":"message","role":"developer","content":[]}`
 		for i := 0; i < len(systemResults); i++ {
 			systemResult := systemResults[i]
 			systemTypeResult := systemResult.Get("type")

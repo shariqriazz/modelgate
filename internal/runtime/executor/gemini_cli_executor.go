@@ -126,7 +126,8 @@ func (e *GeminiCLIExecutor) Execute(ctx context.Context, auth *modelgateauth.Aut
 	basePayload = util.NormalizeGeminiCLIThinkingBudget(req.Model, basePayload)
 	basePayload = util.StripThinkingConfigIfUnsupported(req.Model, basePayload)
 	basePayload = fixGeminiCLIImageAspectRatio(req.Model, basePayload)
-	basePayload = applyPayloadConfigWithRoot(e.cfg, req.Model, "gemini", "request", basePayload, originalTranslated)
+	requestedModel := payloadRequestedModel(opts, req.Model)
+	basePayload = applyPayloadConfigWithRoot(e.cfg, req.Model, "gemini", "request", basePayload, originalTranslated, requestedModel)
 
 	action := "generateContent"
 	if req.Metadata != nil {
@@ -270,7 +271,8 @@ func (e *GeminiCLIExecutor) ExecuteStream(ctx context.Context, auth *modelgateau
 	basePayload = util.NormalizeGeminiCLIThinkingBudget(req.Model, basePayload)
 	basePayload = util.StripThinkingConfigIfUnsupported(req.Model, basePayload)
 	basePayload = fixGeminiCLIImageAspectRatio(req.Model, basePayload)
-	basePayload = applyPayloadConfigWithRoot(e.cfg, req.Model, "gemini", "request", basePayload, originalTranslated)
+	requestedModel := payloadRequestedModel(opts, req.Model)
+	basePayload = applyPayloadConfigWithRoot(e.cfg, req.Model, "gemini", "request", basePayload, originalTranslated, requestedModel)
 
 	projectID := resolveGeminiProjectID(auth)
 

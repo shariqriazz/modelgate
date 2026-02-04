@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shariqriazz/modelgate/internal/misc"
 	"github.com/shariqriazz/modelgate/internal/util"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -38,13 +37,8 @@ import (
 //   - []byte: The transformed request data in Codex API format
 func ConvertGeminiRequestToCodex(modelName string, inputRawJSON []byte, _ bool) []byte {
 	rawJSON := bytes.Clone(inputRawJSON)
-	userAgent := misc.ExtractCodexUserAgent(rawJSON)
 	// Base template
 	out := `{"model":"","instructions":"","input":[]}`
-
-	// Inject standard Codex instructions
-	_, instructions := misc.CodexInstructionsForModel(modelName, "", userAgent)
-	out, _ = sjson.Set(out, "instructions", instructions)
 
 	root := gjson.ParseBytes(rawJSON)
 
@@ -93,7 +87,7 @@ func ConvertGeminiRequestToCodex(modelName string, inputRawJSON []byte, _ bool) 
 	// System instruction -> as a user message with input_text parts
 	sysParts := root.Get("system_instruction.parts")
 	if sysParts.IsArray() {
-		msg := `{"type":"message","role":"user","content":[]}`
+		msg := `{"type":"message","role":"developer","content":[]}`
 		arr := sysParts.Array()
 		for i := 0; i < len(arr); i++ {
 			p := arr[i]

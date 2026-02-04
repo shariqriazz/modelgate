@@ -137,7 +137,8 @@ func (e *AntigravityExecutor) Execute(ctx context.Context, auth *modelgateauth.A
 	translated = util.ApplyGemini3ThinkingLevelFromMetadataCLI(req.Model, req.Metadata, translated)
 	translated = util.ApplyDefaultThinkingIfNeededCLI(req.Model, req.Metadata, translated)
 	translated = normalizeAntigravityThinking(req.Model, translated, isClaude)
-	translated = applyPayloadConfigWithRoot(e.cfg, req.Model, "antigravity", "request", translated, originalTranslated)
+	requestedModel := payloadRequestedModel(opts, req.Model)
+	translated = applyPayloadConfigWithRoot(e.cfg, req.Model, "antigravity", "request", translated, originalTranslated, requestedModel)
 
 	baseURLs := antigravityBaseURLFallbackOrder(auth)
 	httpClient := newProxyAwareHTTPClient(ctx, e.cfg, auth, 0)
@@ -252,7 +253,8 @@ func (e *AntigravityExecutor) executeClaudeNonStream(ctx context.Context, auth *
 	translated = util.ApplyGemini3ThinkingLevelFromMetadataCLI(req.Model, req.Metadata, translated)
 	translated = util.ApplyDefaultThinkingIfNeededCLI(req.Model, req.Metadata, translated)
 	translated = normalizeAntigravityThinking(req.Model, translated, true)
-	translated = applyPayloadConfigWithRoot(e.cfg, req.Model, "antigravity", "request", translated, originalTranslated)
+	requestedModel := payloadRequestedModel(opts, req.Model)
+	translated = applyPayloadConfigWithRoot(e.cfg, req.Model, "antigravity", "request", translated, originalTranslated, requestedModel)
 
 	baseURLs := antigravityBaseURLFallbackOrder(auth)
 	httpClient := newProxyAwareHTTPClient(ctx, e.cfg, auth, 0)
@@ -762,7 +764,8 @@ func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *modelgate
 	translated = util.ApplyGemini3ThinkingLevelFromMetadataCLI(req.Model, req.Metadata, translated)
 	translated = util.ApplyDefaultThinkingIfNeededCLI(req.Model, req.Metadata, translated)
 	translated = normalizeAntigravityThinking(req.Model, translated, isClaude)
-	translated = applyPayloadConfigWithRoot(e.cfg, req.Model, "antigravity", "request", translated, originalTranslated)
+	requestedModel := payloadRequestedModel(opts, req.Model)
+	translated = applyPayloadConfigWithRoot(e.cfg, req.Model, "antigravity", "request", translated, originalTranslated, requestedModel)
 
 	baseURLs := antigravityBaseURLFallbackOrder(auth)
 	httpClient := newProxyAwareHTTPClient(ctx, e.cfg, auth, 0)
@@ -1843,7 +1846,7 @@ func antigravityEffectiveMaxTokens(model string, payload []byte) (max int, fromM
 	if maxTok := gjson.GetBytes(payload, "request.generationConfig.maxOutputTokens"); maxTok.Exists() && maxTok.Int() > 0 {
 		return int(maxTok.Int()), false
 	}
-	if modelInfo := registry.GetGlobalRegistry().GetModelInfo(model); modelInfo != nil && modelInfo.MaxCompletionTokens > 0 {
+	if modelInfo := registry.GetGlobalRegistry().GetModelInfo(model, ""); modelInfo != nil && modelInfo.MaxCompletionTokens > 0 {
 		return modelInfo.MaxCompletionTokens, true
 	}
 	return 0, false
@@ -1852,7 +1855,7 @@ func antigravityEffectiveMaxTokens(model string, payload []byte) (max int, fromM
 // antigravityMinThinkingBudget returns the minimum thinking budget for a model.
 // Falls back to -1 if no model info is found.
 func antigravityMinThinkingBudget(model string) int {
-	if modelInfo := registry.GetGlobalRegistry().GetModelInfo(model); modelInfo != nil && modelInfo.Thinking != nil {
+	if modelInfo := registry.GetGlobalRegistry().GetModelInfo(model, ""); modelInfo != nil && modelInfo.Thinking != nil {
 		return modelInfo.Thinking.Min
 	}
 	return -1
