@@ -955,6 +955,7 @@ func GetGitHubCopilotModels() []*ModelInfo {
 			ContextLength:       128000,
 			MaxCompletionTokens: 128000,
 			Thinking:            &ThinkingSupport{Levels: []string{"low", "medium", "high"}},
+			SupportedEndpoints:  []string{"/responses"},
 		},
 		{
 			ID:                  "copilot-gpt-5.1-codex-max",
@@ -967,6 +968,7 @@ func GetGitHubCopilotModels() []*ModelInfo {
 			ContextLength:       128000,
 			MaxCompletionTokens: 128000,
 			Thinking:            &ThinkingSupport{Levels: []string{"low", "medium", "high", "xhigh"}},
+			SupportedEndpoints:  []string{"/responses"},
 		},
 		{
 			ID:                  "copilot-gpt-5.2",
@@ -979,6 +981,7 @@ func GetGitHubCopilotModels() []*ModelInfo {
 			ContextLength:       128000,
 			MaxCompletionTokens: 64000,
 			Thinking:            &ThinkingSupport{Levels: []string{"low", "medium", "high", "xhigh"}},
+			SupportedEndpoints:  []string{"/chat/completions", "/responses"},
 		},
 		{
 			ID:                  "copilot-gpt-5.2-codex",
@@ -991,6 +994,7 @@ func GetGitHubCopilotModels() []*ModelInfo {
 			ContextLength:       272000,
 			MaxCompletionTokens: 128000,
 			Thinking:            &ThinkingSupport{Levels: []string{"low", "medium", "high", "xhigh"}},
+			SupportedEndpoints:  []string{"/responses"},
 		},
 		{
 			ID:                  "copilot-claude-haiku-4.5",
@@ -1003,6 +1007,7 @@ func GetGitHubCopilotModels() []*ModelInfo {
 			ContextLength:       128000,
 			MaxCompletionTokens: 16000,
 			Thinking:            &ThinkingSupport{Min: 1024, Max: 32000, ZeroAllowed: false, DynamicAllowed: true},
+			SupportedEndpoints:  []string{"/chat/completions"},
 		},
 		{
 			ID:                  "copilot-claude-opus-4.5",
@@ -1015,6 +1020,7 @@ func GetGitHubCopilotModels() []*ModelInfo {
 			ContextLength:       128000,
 			MaxCompletionTokens: 16000,
 			Thinking:            &ThinkingSupport{Min: 1024, Max: 32000, ZeroAllowed: false, DynamicAllowed: true},
+			SupportedEndpoints:  []string{"/chat/completions"},
 		},
 		{
 			ID:                  "copilot-claude-sonnet-4.5",
@@ -1027,6 +1033,7 @@ func GetGitHubCopilotModels() []*ModelInfo {
 			ContextLength:       128000,
 			MaxCompletionTokens: 16000,
 			Thinking:            &ThinkingSupport{Min: 1024, Max: 32000, ZeroAllowed: false, DynamicAllowed: true},
+			SupportedEndpoints:  []string{"/chat/completions"},
 		},
 		{
 			ID:                  "copilot-gemini-3-flash-preview",
@@ -1038,6 +1045,7 @@ func GetGitHubCopilotModels() []*ModelInfo {
 			Description:         "Google Gemini 3 Flash Preview via GitHub Copilot",
 			ContextLength:       109000,
 			MaxCompletionTokens: 64000,
+			SupportedEndpoints:  []string{"/chat/completions"},
 		},
 		{
 			ID:                  "copilot-gemini-3-pro-preview",
@@ -1049,6 +1057,7 @@ func GetGitHubCopilotModels() []*ModelInfo {
 			Description:         "Google Gemini 3 Pro Preview via GitHub Copilot",
 			ContextLength:       109000,
 			MaxCompletionTokens: 64000,
+			SupportedEndpoints:  []string{"/chat/completions"},
 		},
 		{
 			ID:                  "copilot-grok-code-fast-1",
@@ -1060,6 +1069,7 @@ func GetGitHubCopilotModels() []*ModelInfo {
 			Description:         "xAI Grok Code Fast 1 via GitHub Copilot",
 			ContextLength:       128000,
 			MaxCompletionTokens: 16384,
+			SupportedEndpoints:  []string{"/chat/completions"},
 		},
 		{
 			ID:                  "copilot-raptor-mini",
@@ -1071,6 +1081,7 @@ func GetGitHubCopilotModels() []*ModelInfo {
 			Description:         "Raptor Mini via GitHub Copilot",
 			ContextLength:       200000,
 			MaxCompletionTokens: 64000,
+			SupportedEndpoints:  []string{"/chat/completions"},
 		},
 	}
 }

@@ -129,7 +129,8 @@ func (e *GitHubCopilotExecutor) Execute(ctx context.Context, auth *modelgateauth
 	originalTranslated := sdktranslator.TranslateRequest(from, to, req.Model, originalPayload, false)
 	body := sdktranslator.TranslateRequest(from, to, req.Model, bytes.Clone(req.Payload), false)
 	body = e.normalizeModel(req.Model, body)
-	body = applyPayloadConfigWithRoot(e.cfg, req.Model, to.String(), "", body, originalTranslated)
+	requestedModel := payloadRequestedModel(opts, req.Model)
+	body = applyPayloadConfigWithRoot(e.cfg, req.Model, to.String(), "", body, originalTranslated, requestedModel)
 	if isCopilotClaudeFormat(to) {
 		body = normalizeCopilotClaudeThinking(req.Model, body)
 	}
@@ -231,7 +232,8 @@ func (e *GitHubCopilotExecutor) ExecuteStream(ctx context.Context, auth *modelga
 	originalTranslated := sdktranslator.TranslateRequest(from, to, req.Model, originalPayload, false)
 	body := sdktranslator.TranslateRequest(from, to, req.Model, bytes.Clone(req.Payload), true)
 	body = e.normalizeModel(req.Model, body)
-	body = applyPayloadConfigWithRoot(e.cfg, req.Model, to.String(), "", body, originalTranslated)
+	requestedModel := payloadRequestedModel(opts, req.Model)
+	body = applyPayloadConfigWithRoot(e.cfg, req.Model, to.String(), "", body, originalTranslated, requestedModel)
 	if isCopilotClaudeFormat(to) {
 		body = normalizeCopilotClaudeThinking(req.Model, body)
 	}
@@ -485,7 +487,7 @@ func normalizeCopilotClaudeThinking(model string, body []byte) []byte {
 	}
 	maxTokens := gjson.GetBytes(body, "max_tokens")
 	if !maxTokens.Exists() {
-		if info := registry.GetGlobalRegistry().GetModelInfo(model); info != nil && info.MaxCompletionTokens > 0 {
+		if info := registry.GetGlobalRegistry().GetModelInfo(model, ""); info != nil && info.MaxCompletionTokens > 0 {
 			updated, err := sjson.SetBytes(body, "max_tokens", info.MaxCompletionTokens)
 			if err == nil {
 				body = updated
@@ -531,7 +533,7 @@ func normalizeCopilotClaudeThinking(model string, body []byte) []byte {
 }
 
 func minThinkingBudget(model string) int {
-	if info := registry.GetGlobalRegistry().GetModelInfo(model); info != nil && info.Thinking != nil {
+	if info := registry.GetGlobalRegistry().GetModelInfo(model, ""); info != nil && info.Thinking != nil {
 		return info.Thinking.Min
 	}
 	return 0

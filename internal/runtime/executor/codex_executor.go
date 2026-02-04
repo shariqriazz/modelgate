@@ -13,6 +13,7 @@ import (
 	codexauth "github.com/shariqriazz/modelgate/internal/auth/codex"
 	"github.com/shariqriazz/modelgate/internal/config"
 	"github.com/shariqriazz/modelgate/internal/misc"
+	"github.com/shariqriazz/modelgate/internal/thinking"
 	"github.com/shariqriazz/modelgate/internal/util"
 	modelgateauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
 	modelgateexecutor "github.com/shariqriazz/modelgate/sdk/cliproxy/executor"
@@ -72,49 +73,49 @@ func (e *CodexExecutor) HttpRequest(ctx context.Context, auth *modelgateauth.Aut
 }
 
 func (e *CodexExecutor) Execute(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (resp modelgateexecutor.Response, err error) {
-	apiKey, baseURL := codexCreds(auth)
+	if opts.Alt == "responses/compact" {
+		return e.executeCompact(ctx, auth, req, opts)
+	}
+	baseModel := thinking.ParseSuffix(req.Model).ModelName
 
+	apiKey, baseURL := codexCreds(auth)
 	if baseURL == "" {
 		baseURL = "https://chatgpt.com/backend-api/codex"
 	}
-	reporter := newUsageReporter(ctx, e.Identifier(), req.Model, auth)
+	reporter := newUsageReporter(ctx, e.Identifier(), baseModel, auth)
 	defer reporter.trackFailure(ctx, &err)
-
-	model := req.Model
-	if override := e.resolveUpstreamModel(req.Model, auth); override != "" {
-		model = override
-	}
 
 	from := opts.SourceFormat
 	to := sdktranslator.FromString("codex")
-	userAgent := codexUserAgent(ctx)
 	originalPayload := bytes.Clone(req.Payload)
 	if len(opts.OriginalRequest) > 0 {
 		originalPayload = bytes.Clone(opts.OriginalRequest)
 	}
-	originalPayload = misc.InjectCodexUserAgent(originalPayload, userAgent)
-	originalTranslated := sdktranslator.TranslateRequest(from, to, model, originalPayload, false)
-	body := misc.InjectCodexUserAgent(bytes.Clone(req.Payload), userAgent)
-	body = sdktranslator.TranslateRequest(from, to, model, body, false)
-	body = misc.StripCodexUserAgent(body)
-	body = ApplyReasoningEffortMetadata(body, req.Metadata, model, "reasoning.effort", false)
-	body = NormalizeThinkingConfig(body, model, false)
-	if errValidate := ValidateThinkingConfig(body, model); errValidate != nil {
-		return resp, errValidate
+	originalTranslated := sdktranslator.TranslateRequest(from, to, baseModel, originalPayload, false)
+	body := sdktranslator.TranslateRequest(from, to, baseModel, bytes.Clone(req.Payload), false)
+
+	body, err = thinking.ApplyThinking(body, req.Model, from.String(), to.String(), e.Identifier())
+	if err != nil {
+		return resp, err
 	}
-	body = applyPayloadConfigWithRoot(e.cfg, model, to.String(), "", body, originalTranslated)
-	body, _ = sjson.SetBytes(body, "model", model)
+
+	requestedModel := payloadRequestedModel(opts, req.Model)
+	body = applyPayloadConfigWithRoot(e.cfg, baseModel, to.String(), "", body, originalTranslated, requestedModel)
+	body, _ = sjson.SetBytes(body, "model", baseModel)
 	body, _ = sjson.SetBytes(body, "stream", true)
 	body, _ = sjson.DeleteBytes(body, "previous_response_id")
 	body, _ = sjson.DeleteBytes(body, "prompt_cache_retention")
 	body, _ = sjson.DeleteBytes(body, "safety_identifier")
+	if !gjson.GetBytes(body, "instructions").Exists() {
+		body, _ = sjson.SetBytes(body, "instructions", "")
+	}
 
 	url := strings.TrimSuffix(baseURL, "/") + "/responses"
 	httpReq, err := e.cacheHelper(ctx, from, url, req, body)
 	if err != nil {
 		return resp, err
 	}
-	applyCodexHeaders(httpReq, auth, apiKey)
+	applyCodexHeaders(httpReq, auth, apiKey, true)
 	var authID, authLabel, authType, authValue string
 	if auth != nil {
 		authID = auth.ID
@@ -182,50 +183,135 @@ func (e *CodexExecutor) Execute(ctx context.Context, auth *modelgateauth.Auth, r
 	return resp, err
 }
 
-func (e *CodexExecutor) ExecuteStream(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (stream <-chan modelgateexecutor.StreamChunk, err error) {
-	apiKey, baseURL := codexCreds(auth)
+func (e *CodexExecutor) executeCompact(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (resp modelgateexecutor.Response, err error) {
+	baseModel := thinking.ParseSuffix(req.Model).ModelName
 
+	apiKey, baseURL := codexCreds(auth)
 	if baseURL == "" {
 		baseURL = "https://chatgpt.com/backend-api/codex"
 	}
-	reporter := newUsageReporter(ctx, e.Identifier(), req.Model, auth)
+
+	reporter := newUsageReporter(ctx, e.Identifier(), baseModel, auth)
 	defer reporter.trackFailure(ctx, &err)
 
-	model := req.Model
-	if override := e.resolveUpstreamModel(req.Model, auth); override != "" {
-		model = override
-	}
-
 	from := opts.SourceFormat
-	to := sdktranslator.FromString("codex")
-	userAgent := codexUserAgent(ctx)
+	to := sdktranslator.FromString("openai-response")
 	originalPayload := bytes.Clone(req.Payload)
 	if len(opts.OriginalRequest) > 0 {
 		originalPayload = bytes.Clone(opts.OriginalRequest)
 	}
-	originalPayload = misc.InjectCodexUserAgent(originalPayload, userAgent)
-	originalTranslated := sdktranslator.TranslateRequest(from, to, model, originalPayload, true)
-	body := misc.InjectCodexUserAgent(bytes.Clone(req.Payload), userAgent)
-	body = sdktranslator.TranslateRequest(from, to, model, body, true)
-	body = misc.StripCodexUserAgent(body)
+	originalTranslated := sdktranslator.TranslateRequest(from, to, baseModel, originalPayload, false)
+	body := sdktranslator.TranslateRequest(from, to, baseModel, bytes.Clone(req.Payload), false)
 
-	body = ApplyReasoningEffortMetadata(body, req.Metadata, model, "reasoning.effort", false)
-	body = NormalizeThinkingConfig(body, model, false)
-	if errValidate := ValidateThinkingConfig(body, model); errValidate != nil {
-		return nil, errValidate
+	body, err = thinking.ApplyThinking(body, req.Model, from.String(), to.String(), e.Identifier())
+	if err != nil {
+		return resp, err
 	}
-	body = applyPayloadConfigWithRoot(e.cfg, model, to.String(), "", body, originalTranslated)
+
+	requestedModel := payloadRequestedModel(opts, req.Model)
+	body = applyPayloadConfigWithRoot(e.cfg, baseModel, to.String(), "", body, originalTranslated, requestedModel)
+	body, _ = sjson.SetBytes(body, "model", baseModel)
+	body, _ = sjson.DeleteBytes(body, "stream")
+
+	url := strings.TrimSuffix(baseURL, "/") + "/responses/compact"
+	httpReq, err := e.cacheHelper(ctx, from, url, req, body)
+	if err != nil {
+		return resp, err
+	}
+	applyCodexHeaders(httpReq, auth, apiKey, false)
+	var authID, authLabel, authType, authValue string
+	if auth != nil {
+		authID = auth.ID
+		authLabel = auth.Label
+		authType, authValue = auth.AccountInfo()
+	}
+	recordAPIRequest(ctx, e.cfg, upstreamRequestLog{
+		URL:       url,
+		Method:    http.MethodPost,
+		Headers:   httpReq.Header.Clone(),
+		Body:      body,
+		Provider:  e.Identifier(),
+		AuthID:    authID,
+		AuthLabel: authLabel,
+		AuthType:  authType,
+		AuthValue: authValue,
+	})
+	httpClient := newProxyAwareHTTPClient(ctx, e.cfg, auth, 0)
+	httpResp, err := httpClient.Do(httpReq)
+	if err != nil {
+		recordAPIResponseError(ctx, e.cfg, err)
+		return resp, err
+	}
+	defer func() {
+		if errClose := httpResp.Body.Close(); errClose != nil {
+			log.Errorf("codex executor: close response body error: %v", errClose)
+		}
+	}()
+	recordAPIResponseMetadata(ctx, e.cfg, httpResp.StatusCode, httpResp.Header.Clone())
+	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
+		b, _ := io.ReadAll(httpResp.Body)
+		appendAPIResponseChunk(ctx, e.cfg, b)
+		log.Debugf("request error, error status: %d, error body: %s", httpResp.StatusCode, summarizeErrorBody(httpResp.Header.Get("Content-Type"), b))
+		err = statusErr{code: httpResp.StatusCode, msg: string(b)}
+		return resp, err
+	}
+	data, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		recordAPIResponseError(ctx, e.cfg, err)
+		return resp, err
+	}
+	appendAPIResponseChunk(ctx, e.cfg, data)
+	reporter.publish(ctx, parseOpenAIUsage(data))
+	reporter.ensurePublished(ctx)
+	var param any
+	out := sdktranslator.TranslateNonStream(ctx, to, from, req.Model, bytes.Clone(originalPayload), body, data, &param)
+	resp = modelgateexecutor.Response{Payload: []byte(out)}
+	return resp, nil
+}
+
+func (e *CodexExecutor) ExecuteStream(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (stream <-chan modelgateexecutor.StreamChunk, err error) {
+	if opts.Alt == "responses/compact" {
+		return nil, statusErr{code: http.StatusBadRequest, msg: "streaming not supported for /responses/compact"}
+	}
+	baseModel := thinking.ParseSuffix(req.Model).ModelName
+
+	apiKey, baseURL := codexCreds(auth)
+	if baseURL == "" {
+		baseURL = "https://chatgpt.com/backend-api/codex"
+	}
+	reporter := newUsageReporter(ctx, e.Identifier(), baseModel, auth)
+	defer reporter.trackFailure(ctx, &err)
+
+	from := opts.SourceFormat
+	to := sdktranslator.FromString("codex")
+	originalPayload := bytes.Clone(req.Payload)
+	if len(opts.OriginalRequest) > 0 {
+		originalPayload = bytes.Clone(opts.OriginalRequest)
+	}
+	originalTranslated := sdktranslator.TranslateRequest(from, to, baseModel, originalPayload, true)
+	body := sdktranslator.TranslateRequest(from, to, baseModel, bytes.Clone(req.Payload), true)
+
+	body, err = thinking.ApplyThinking(body, req.Model, from.String(), to.String(), e.Identifier())
+	if err != nil {
+		return nil, err
+	}
+
+	requestedModel := payloadRequestedModel(opts, req.Model)
+	body = applyPayloadConfigWithRoot(e.cfg, baseModel, to.String(), "", body, originalTranslated, requestedModel)
 	body, _ = sjson.DeleteBytes(body, "previous_response_id")
 	body, _ = sjson.DeleteBytes(body, "prompt_cache_retention")
 	body, _ = sjson.DeleteBytes(body, "safety_identifier")
-	body, _ = sjson.SetBytes(body, "model", model)
+	body, _ = sjson.SetBytes(body, "model", baseModel)
+	if !gjson.GetBytes(body, "instructions").Exists() {
+		body, _ = sjson.SetBytes(body, "instructions", "")
+	}
 
 	url := strings.TrimSuffix(baseURL, "/") + "/responses"
 	httpReq, err := e.cacheHelper(ctx, from, url, req, body)
 	if err != nil {
 		return nil, err
 	}
-	applyCodexHeaders(httpReq, auth, apiKey)
+	applyCodexHeaders(httpReq, auth, apiKey, true)
 	var authID, authLabel, authType, authValue string
 	if auth != nil {
 		authID = auth.ID
@@ -305,26 +391,27 @@ func (e *CodexExecutor) ExecuteStream(ctx context.Context, auth *modelgateauth.A
 }
 
 func (e *CodexExecutor) CountTokens(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (modelgateexecutor.Response, error) {
-	model := req.Model
-	if override := e.resolveUpstreamModel(req.Model, auth); override != "" {
-		model = override
-	}
+	baseModel := thinking.ParseSuffix(req.Model).ModelName
 
 	from := opts.SourceFormat
 	to := sdktranslator.FromString("codex")
-	userAgent := codexUserAgent(ctx)
-	body := misc.InjectCodexUserAgent(bytes.Clone(req.Payload), userAgent)
-	body = sdktranslator.TranslateRequest(from, to, model, body, false)
-	body = misc.StripCodexUserAgent(body)
+	body := sdktranslator.TranslateRequest(from, to, baseModel, bytes.Clone(req.Payload), false)
 
-	body = ApplyReasoningEffortMetadata(body, req.Metadata, model, "reasoning.effort", false)
-	body, _ = sjson.SetBytes(body, "model", model)
+	body, err := thinking.ApplyThinking(body, req.Model, from.String(), to.String(), e.Identifier())
+	if err != nil {
+		return modelgateexecutor.Response{}, err
+	}
+
+	body, _ = sjson.SetBytes(body, "model", baseModel)
 	body, _ = sjson.DeleteBytes(body, "previous_response_id")
 	body, _ = sjson.DeleteBytes(body, "prompt_cache_retention")
 	body, _ = sjson.DeleteBytes(body, "safety_identifier")
 	body, _ = sjson.SetBytes(body, "stream", false)
+	if !gjson.GetBytes(body, "instructions").Exists() {
+		body, _ = sjson.SetBytes(body, "instructions", "")
+	}
 
-	enc, err := tokenizerForCodexModel(model)
+	enc, err := tokenizerForCodexModel(baseModel)
 	if err != nil {
 		return modelgateexecutor.Response{}, fmt.Errorf("codex executor: tokenizer init failed: %w", err)
 	}
@@ -522,17 +609,21 @@ func (e *CodexExecutor) cacheHelper(ctx context.Context, from sdktranslator.Form
 		}
 	}
 
-	rawJSON, _ = sjson.SetBytes(rawJSON, "prompt_cache_key", cache.ID)
+	if cache.ID != "" {
+		rawJSON, _ = sjson.SetBytes(rawJSON, "prompt_cache_key", cache.ID)
+	}
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(rawJSON))
 	if err != nil {
 		return nil, err
 	}
-	httpReq.Header.Set("Conversation_id", cache.ID)
-	httpReq.Header.Set("Session_id", cache.ID)
+	if cache.ID != "" {
+		httpReq.Header.Set("Conversation_id", cache.ID)
+		httpReq.Header.Set("Session_id", cache.ID)
+	}
 	return httpReq, nil
 }
 
-func applyCodexHeaders(r *http.Request, auth *modelgateauth.Auth, token string) {
+func applyCodexHeaders(r *http.Request, auth *modelgateauth.Auth, token string, stream bool) {
 	r.Header.Set("Content-Type", "application/json")
 	r.Header.Set("Authorization", "Bearer "+token)
 
@@ -546,7 +637,11 @@ func applyCodexHeaders(r *http.Request, auth *modelgateauth.Auth, token string) 
 	misc.EnsureHeader(r.Header, ginHeaders, "Session_id", uuid.NewString())
 	misc.EnsureHeader(r.Header, ginHeaders, "User-Agent", "codex_cli_rs/0.50.0 (Mac OS 26.0.1; arm64) Apple_Terminal/464")
 
-	r.Header.Set("Accept", "text/event-stream")
+	if stream {
+		r.Header.Set("Accept", "text/event-stream")
+	} else {
+		r.Header.Set("Accept", "application/json")
+	}
 	r.Header.Set("Connection", "Keep-Alive")
 
 	isAPIKey := false
@@ -570,16 +665,6 @@ func applyCodexHeaders(r *http.Request, auth *modelgateauth.Auth, token string) 
 	util.ApplyCustomHeadersFromAttrs(r, attrs)
 }
 
-func codexUserAgent(ctx context.Context) string {
-	if ctx == nil {
-		return ""
-	}
-	if ginCtx, ok := ctx.Value("gin").(*gin.Context); ok && ginCtx != nil && ginCtx.Request != nil {
-		return strings.TrimSpace(ginCtx.Request.UserAgent())
-	}
-	return ""
-}
-
 func codexCreds(a *modelgateauth.Auth) (apiKey, baseURL string) {
 	if a == nil {
 		return "", ""
@@ -594,88 +679,4 @@ func codexCreds(a *modelgateauth.Auth) (apiKey, baseURL string) {
 		}
 	}
 	return
-}
-
-func (e *CodexExecutor) resolveUpstreamModel(alias string, auth *modelgateauth.Auth) string {
-	trimmed := strings.TrimSpace(alias)
-	if trimmed == "" {
-		return ""
-	}
-
-	entry := e.resolveCodexConfig(auth)
-	if entry == nil {
-		return ""
-	}
-
-	normalizedModel, metadata := util.NormalizeThinkingModel(trimmed)
-
-	// Candidate names to match against configured aliases/names.
-	candidates := []string{strings.TrimSpace(normalizedModel)}
-	if !strings.EqualFold(normalizedModel, trimmed) {
-		candidates = append(candidates, trimmed)
-	}
-	if original := util.ResolveOriginalModel(normalizedModel, metadata); original != "" && !strings.EqualFold(original, normalizedModel) {
-		candidates = append(candidates, original)
-	}
-
-	for i := range entry.Models {
-		model := entry.Models[i]
-		name := strings.TrimSpace(model.Name)
-		modelAlias := strings.TrimSpace(model.Alias)
-
-		for _, candidate := range candidates {
-			if candidate == "" {
-				continue
-			}
-			if modelAlias != "" && strings.EqualFold(modelAlias, candidate) {
-				if name != "" {
-					return name
-				}
-				return candidate
-			}
-			if name != "" && strings.EqualFold(name, candidate) {
-				return name
-			}
-		}
-	}
-	return ""
-}
-
-func (e *CodexExecutor) resolveCodexConfig(auth *modelgateauth.Auth) *config.CodexKey {
-	if auth == nil || e.cfg == nil {
-		return nil
-	}
-	var attrKey, attrBase string
-	if auth.Attributes != nil {
-		attrKey = strings.TrimSpace(auth.Attributes["api_key"])
-		attrBase = strings.TrimSpace(auth.Attributes["base_url"])
-	}
-	for i := range e.cfg.CodexKey {
-		entry := &e.cfg.CodexKey[i]
-		cfgKey := strings.TrimSpace(entry.APIKey)
-		cfgBase := strings.TrimSpace(entry.BaseURL)
-		if attrKey != "" && attrBase != "" {
-			if strings.EqualFold(cfgKey, attrKey) && strings.EqualFold(cfgBase, attrBase) {
-				return entry
-			}
-			continue
-		}
-		if attrKey != "" && strings.EqualFold(cfgKey, attrKey) {
-			if cfgBase == "" || strings.EqualFold(cfgBase, attrBase) {
-				return entry
-			}
-		}
-		if attrKey == "" && attrBase != "" && strings.EqualFold(cfgBase, attrBase) {
-			return entry
-		}
-	}
-	if attrKey != "" {
-		for i := range e.cfg.CodexKey {
-			entry := &e.cfg.CodexKey[i]
-			if strings.EqualFold(strings.TrimSpace(entry.APIKey), attrKey) {
-				return entry
-			}
-		}
-	}
-	return nil
 }

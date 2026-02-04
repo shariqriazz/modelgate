@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shariqriazz/modelgate/internal/interfaces"
 	"github.com/shariqriazz/modelgate/internal/logging"
+	"github.com/shariqriazz/modelgate/internal/thinking"
 	"github.com/shariqriazz/modelgate/internal/util"
 	coreauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
 	coreexecutor "github.com/shariqriazz/modelgate/sdk/cliproxy/executor"
@@ -385,6 +386,7 @@ func (h *BaseAPIHandler) ExecuteWithAuthManager(ctx context.Context, handlerType
 		return nil, errMsg
 	}
 	reqMeta := requestExecutionMetadata(ctx)
+	reqMeta[coreexecutor.RequestedModelMetadataKey] = normalizedModel
 	req := coreexecutor.Request{
 		Model:   normalizedModel,
 		Payload: cloneBytes(rawJSON),
@@ -426,6 +428,7 @@ func (h *BaseAPIHandler) ExecuteCountWithAuthManager(ctx context.Context, handle
 		return nil, errMsg
 	}
 	reqMeta := requestExecutionMetadata(ctx)
+	reqMeta[coreexecutor.RequestedModelMetadataKey] = normalizedModel
 	req := coreexecutor.Request{
 		Model:   normalizedModel,
 		Payload: cloneBytes(rawJSON),
@@ -470,6 +473,7 @@ func (h *BaseAPIHandler) ExecuteStreamWithAuthManager(ctx context.Context, handl
 		return nil, errChan
 	}
 	reqMeta := requestExecutionMetadata(ctx)
+	reqMeta[coreexecutor.RequestedModelMetadataKey] = normalizedModel
 	req := coreexecutor.Request{
 		Model:   normalizedModel,
 		Payload: cloneBytes(rawJSON),
@@ -597,37 +601,39 @@ func statusFromError(err error) int {
 }
 
 func (h *BaseAPIHandler) getRequestDetails(modelName string) (providers []string, normalizedModel string, metadata map[string]any, err *interfaces.ErrorMessage) {
-	// Resolve "auto" model to an actual available model first
-	resolvedModelName := util.ResolveAutoModel(modelName)
-
-	// Normalize the model name to handle dynamic thinking suffixes before determining the provider.
-	normalizedModel, metadata = normalizeModelMetadata(resolvedModelName)
-
-	// Use the normalizedModel to get the provider name.
-	providers = util.GetProviderName(normalizedModel)
-	if len(providers) == 0 && metadata != nil {
-		if originalRaw, ok := metadata[util.ThinkingOriginalModelMetadataKey]; ok {
-			if originalModel, okStr := originalRaw.(string); okStr {
-				originalModel = strings.TrimSpace(originalModel)
-				if originalModel != "" && !strings.EqualFold(originalModel, normalizedModel) {
-					if altProviders := util.GetProviderName(originalModel); len(altProviders) > 0 {
-						providers = altProviders
-						normalizedModel = originalModel
-					}
-				}
-			}
+	resolvedModelName := modelName
+	initialSuffix := thinking.ParseSuffix(modelName)
+	if initialSuffix.ModelName == "auto" {
+		resolvedBase := util.ResolveAutoModel(initialSuffix.ModelName)
+		if initialSuffix.HasSuffix {
+			resolvedModelName = fmt.Sprintf("%s(%s)", resolvedBase, initialSuffix.RawSuffix)
+		} else {
+			resolvedModelName = resolvedBase
 		}
+	} else {
+		resolvedModelName = util.ResolveAutoModel(modelName)
+	}
+
+	parsed := thinking.ParseSuffix(resolvedModelName)
+	baseModel := strings.TrimSpace(parsed.ModelName)
+
+	providers = util.GetProviderName(baseModel)
+	// Fallback: if baseModel has no provider but differs from resolvedModelName,
+	// try using the full model name. This handles edge cases where custom models
+	// may be registered with their full suffixed name (e.g., "my-model(8192)").
+	// Evaluated in Story 11.8: This fallback is intentionally preserved to support
+	// custom model registrations that include thinking suffixes.
+	if len(providers) == 0 && baseModel != resolvedModelName {
+		providers = util.GetProviderName(resolvedModelName)
 	}
 
 	if len(providers) == 0 {
-		return nil, "", nil, &interfaces.ErrorMessage{StatusCode: http.StatusBadRequest, Error: fmt.Errorf("unknown provider for model %s", modelName)}
+		return nil, "", nil, &interfaces.ErrorMessage{StatusCode: http.StatusBadGateway, Error: fmt.Errorf("unknown provider for model %s", modelName)}
 	}
 
-	// If it's a dynamic model, the normalizedModel was already set to extractedModelName.
-	// If it's a non-dynamic model, normalizedModel was set by normalizeModelMetadata.
-	// So, normalizedModel is already correctly set at this point.
-
-	return providers, normalizedModel, metadata, nil
+	// The thinking suffix is preserved in the model name itself, so no
+	// metadata-based configuration passing is needed.
+	return providers, resolvedModelName, metadata, nil
 }
 
 func cloneBytes(src []byte) []byte {
@@ -637,10 +643,6 @@ func cloneBytes(src []byte) []byte {
 	dst := make([]byte, len(src))
 	copy(dst, src)
 	return dst
-}
-
-func normalizeModelMetadata(modelName string) (string, map[string]any) {
-	return util.NormalizeThinkingModel(modelName)
 }
 
 func cloneMetadata(src map[string]any) map[string]any {

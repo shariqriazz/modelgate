@@ -218,7 +218,7 @@ func TestThinkingConversionsAcrossProtocolsAndModels(t *testing.T) {
 	}
 
 	for _, model := range thinkingTestModels {
-		_ = registry.GetGlobalRegistry().GetModelInfo(model)
+		_ = registry.GetGlobalRegistry().GetModelInfo(model, "")
 
 		for _, from := range thinkingTestFromProtocols {
 			// Scenario selection follows protocol semantics:

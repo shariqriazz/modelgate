@@ -125,7 +125,7 @@ Global model mappings for OAuth providers (`config.go:98-105`). Supported channe
 
 ## Payload Configuration
 
-Override or set default parameters per model (`config.example.yaml:195-206`):
+Override or set default parameters per model (`config.example.yaml:207-344`):
 
 ```yaml
 payload:
@@ -135,11 +135,29 @@ payload:
           protocol: "gemini"
       params:
         "generationConfig.thinkingConfig.thinkingBudget": 32768
+  default-raw:  # Set raw JSON when missing (must be valid JSON)
+    - models:
+        - name: "gemini-2.5-pro"
+          protocol: "gemini"
+      params:
+        "generationConfig.responseJsonSchema": "{\"type\":\"object\",\"properties\":{\"answer\":{\"type\":\"string\"}}}"
   override:  # Always override
     - models:
         - name: "gpt-*"
       params:
         "reasoning.effort": "high"
+  override-raw:  # Always override with raw JSON (must be valid JSON)
+    - models:
+        - name: "gpt-*"
+      params:
+        "response_format": "{\"type\":\"json_schema\",\"json_schema\":{\"name\":\"answer\",\"schema\":{\"type\":\"object\"}}}"
+  filter:  # Remove fields from payload
+    - models:
+        - name: "gemini-2.5-pro"
+          protocol: "gemini"
+      params:
+        - "generationConfig.thinkingConfig.thinkingBudget"
+        - "generationConfig.responseJsonSchema"
 ```
 
 ## Environment Variables
