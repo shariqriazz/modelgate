@@ -18,12 +18,23 @@ func CredentialFileName(email, planType, hashAccountID string, includeProviderPr
 		prefix = "codex"
 	}
 
-	if plan == "" {
-		return fmt.Sprintf("%s-%s.json", prefix, email)
-	} else if plan == "team" {
-		return fmt.Sprintf("%s-%s-%s-%s.json", prefix, hashAccountID, email, plan)
+	parts := make([]string, 0, 4)
+	if prefix != "" {
+		parts = append(parts, prefix)
 	}
-	return fmt.Sprintf("%s-%s-%s.json", prefix, email, plan)
+	if hashAccountID != "" {
+		parts = append(parts, hashAccountID)
+	}
+	if email != "" {
+		parts = append(parts, email)
+	}
+	if plan != "" {
+		parts = append(parts, plan)
+	}
+	if len(parts) == 0 {
+		return "codex.json"
+	}
+	return fmt.Sprintf("%s.json", strings.Join(parts, "-"))
 }
 
 func normalizePlanTypeForFilename(planType string) string {

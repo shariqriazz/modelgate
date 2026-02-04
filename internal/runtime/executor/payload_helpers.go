@@ -1,12 +1,12 @@
 package executor
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/shariqriazz/modelgate/internal/config"
+	"github.com/shariqriazz/modelgate/internal/jsonutil"
 	"github.com/shariqriazz/modelgate/internal/thinking"
 	"github.com/shariqriazz/modelgate/internal/util"
 	cliproxyexecutor "github.com/shariqriazz/modelgate/sdk/cliproxy/executor"
@@ -174,7 +174,7 @@ func applyPayloadConfigWithRoot(cfg *config.Config, model, protocol, root string
 			if _, ok := appliedDefaults[fullPath]; ok {
 				continue
 			}
-			rawValue, ok := payloadRawValue(value)
+			rawValue, ok := jsonutil.RawValue(value)
 			if !ok {
 				continue
 			}
@@ -215,7 +215,7 @@ func applyPayloadConfigWithRoot(cfg *config.Config, model, protocol, root string
 			if fullPath == "" {
 				continue
 			}
-			rawValue, ok := payloadRawValue(value)
+			rawValue, ok := jsonutil.RawValue(value)
 			if !ok {
 				continue
 			}
@@ -320,24 +320,6 @@ func buildPayloadPath(root, path string) string {
 		p = p[1:]
 	}
 	return r + "." + p
-}
-
-func payloadRawValue(value any) ([]byte, bool) {
-	if value == nil {
-		return nil, false
-	}
-	switch typed := value.(type) {
-	case string:
-		return []byte(typed), true
-	case []byte:
-		return typed, true
-	default:
-		raw, errMarshal := json.Marshal(typed)
-		if errMarshal != nil {
-			return nil, false
-		}
-		return raw, true
-	}
 }
 
 func payloadRequestedModel(opts cliproxyexecutor.Options, fallback string) string {

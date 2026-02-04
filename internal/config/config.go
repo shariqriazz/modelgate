@@ -13,6 +13,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/shariqriazz/modelgate/internal/jsonutil"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/yaml.v3"
@@ -660,7 +661,7 @@ func sanitizePayloadRawRules(rules []PayloadRule, section string) []PayloadRule 
 		}
 		invalid := false
 		for path, value := range rule.Params {
-			raw, ok := payloadRawString(value)
+			raw, ok := jsonutil.RawValue(value)
 			if !ok {
 				continue
 			}
@@ -681,21 +682,6 @@ func sanitizePayloadRawRules(rules []PayloadRule, section string) []PayloadRule 
 		out = append(out, rule)
 	}
 	return out
-}
-
-func payloadRawString(value any) ([]byte, bool) {
-	switch typed := value.(type) {
-	case string:
-		return []byte(typed), true
-	case []byte:
-		return typed, true
-	default:
-		raw, errMarshal := json.Marshal(typed)
-		if errMarshal != nil {
-			return nil, false
-		}
-		return raw, true
-	}
 }
 
 // SanitizeOpenAICompatibility removes OpenAI-compatibility provider entries that are
