@@ -14,7 +14,7 @@ tls:
   cert: "" # /path/to/cert.pem
   key: "" # /path/to/key.pem
 # Authentication directory
-auth-dir: "~/.modelgate"
+auth-dir: "/root/.modelgate"
 # API keys for client authentication
 api-keys:
   - "sk-ant-b72f522fc29fc5b0d2eb612ddc74f44b6af7406191d8b6151baed1607505a798"
@@ -38,7 +38,7 @@ proxy-url: ""
 # Disable high-overhead middleware for production (reduces memory under load)
 commercial-mode: true
 # Request retry settings
-request-retry: 3
+request-retry: 1
 max-retry-interval: 30
 # Quota exceeded behavior - auto-failover
 quota-exceeded:
@@ -64,7 +64,7 @@ request-log: true
 # Write logs to rotating files (recommended for servers)
 logging-to-file: true
 # Max total log size in MB (0 = unlimited)
-logs-max-total-size-mb: 500
+logs-max-total-size-mb: 50
 # Enable usage statistics aggregation
 usage-statistics-enabled: true
 # =============================================================================
@@ -134,52 +134,65 @@ incognito-browser: false
 # =============================================================================
 payload:
   default:
-# Gemini 2.5 Flash models - max thinking budget
     - models:
-        - name: "gemini-2.5-flash"
-        - name: "gemini-2.5-flash-lite"
+        - name: gemini-2.5-flash
+          protocol: ""
+        - name: gemini-2.5-flash-lite
+          protocol: ""
       params:
-        "generationConfig.thinkingConfig.thinkingBudget": 24576
-# Gemini 3 and 2.5 Pro models - max thinking budget
+        generationConfig.thinkingConfig.thinkingBudget: 24576
     - models:
-        - name: "gemini-3-pro-preview"
-        - name: "gemini-3-pro-image-preview"
-        - name: "gemini-3-flash-preview"
-        - name: "gemini-2.5-computer-use-preview-10-2025"
+        - name: gemini-3-pro-preview
+          protocol: ""
+        - name: gemini-3-pro-image-preview
+          protocol: ""
+        - name: gemini-3-flash-preview
+          protocol: ""
+        - name: gemini-2.5-computer-use-preview-10-2025
+          protocol: ""
       params:
-        "generationConfig.thinkingConfig.thinkingBudget": 32768
-# Claude via Antigravity - thinking is controlled by client extra_args
-# The client sends thinking.budget_tokens which gets translated to thinkingConfig
-# GitHub Copilot GPT models - max reasoning effort
+        generationConfig.thinkingConfig.thinkingBudget: 32768
     - models:
-        - name: "copilot-gpt-5.1-codex-max"
-        - name: "copilot-gpt-5.2"
-        - name: "copilot-gpt-5.2-codex"
+        - name: copilot-gpt-5.1-codex-max
+          protocol: ""
+        - name: copilot-gpt-5.2
+          protocol: ""
+        - name: copilot-gpt-5.2-codex
+          protocol: ""
       params:
-        "reasoning.effort": "xhigh"
-        "reasoning.summary": "detailed"
+        reasoning.effort: xhigh
+        reasoning.summary: detailed
     - models:
-        - name: "copilot-gpt-5.1-codex-mini"
+        - name: copilot-gpt-5.1-codex-mini
+          protocol: ""
       params:
-        "reasoning.effort": "high"
-        "reasoning.summary": "detailed"
-# GitHub Copilot Claude models - max thinking budget
+        reasoning.effort: high
+        reasoning.summary: detailed
     - models:
-        - name: "copilot-claude-haiku-4.5"
-        - name: "copilot-claude-opus-4.5"
-        - name: "copilot-claude-sonnet-4.5"
+        - name: copilot-claude-haiku-4.5
+          protocol: ""
+        - name: copilot-claude-opus-4.5
+          protocol: ""
+        - name: copilot-claude-sonnet-4.5
+          protocol: ""
       params:
-        "thinking.budget_tokens": 32000
-# Codex GPT models - max reasoning effort
+        thinking.budget_tokens: 32000
     - models:
-        - name: "gpt-5.1-codex-max"
-        - name: "gpt-5.2"
-        - name: "gpt-5.2-codex"
+        - name: gpt-5.1-codex-max
+          protocol: ""
+        - name: gpt-5.2
+          protocol: ""
+        - name: gpt-5.2-codex
+          protocol: ""
       params:
-        "reasoning.effort": "xhigh"
-# iFlow models with thinking support - enable thinking
+        reasoning.effort: xhigh
+        reasoning.summary: detailed
+        text.verbosity: medium
     - models:
-        - name: "glm-4.7"
-        - name: "minimax-m2.1"
+        - name: glm-4.7
+          protocol: ""
+        - name: minimax-m2.1
+          protocol: ""
       params:
-        "reasoning_effort": "high"
+        reasoning_effort: high
+openai-compatibility: []
