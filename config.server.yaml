@@ -177,6 +177,13 @@ payload:
           protocol: ""
       params:
         thinking.budget_tokens: 32000
+# GitHub Copilot Claude Opus 4.6 - 64K thinking budget
+    - models:
+        - name: copilot-claude-opus-4.6
+          protocol: ""
+      params:
+        thinking.budget_tokens: 64000
+# Codex GPT models - max reasoning effort
     - models:
         - name: gpt-5.1-codex-max
           protocol: ""
