@@ -1,205 +1,86 @@
-# =============================================================================
-# CLI Proxy API - Server Configuration
-# =============================================================================
-# Optimized for remote server deployment with security best practices
-# =============================================================================
-
-# Bind to all interfaces for remote access (use firewall to restrict access)
-host: "0.0.0.0"
+host: 0.0.0.0
 port: 4091
-# TLS settings - STRONGLY RECOMMENDED for remote access
-# Generate certs: openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes
 tls:
-  enable: false # Set to true and provide cert/key paths for HTTPS
-  cert: "" # /path/to/cert.pem
-  key: "" # /path/to/key.pem
-# Authentication directory
-auth-dir: "/root/.modelgate"
-# API keys for client authentication
+  enable: false
+auth-dir: /root/.modelgate
 api-keys:
-  - "sk-ant-b72f522fc29fc5b0d2eb612ddc74f44b6af7406191d8b6151baed1607505a798"
-# Management API settings
+  - sk-ant-b72f522fc29fc5b0d2eb612ddc74f44b6af7406191d8b6151baed1607505a798
 remote-management:
-# Allow remote management access (required for server deployment)
   allow-remote: true
-# Management secret key - CHANGE THIS to a strong password
-# Will be auto-hashed on first startup
-  secret-key: "$2a$10$8FIcHiBWau/8bhLqcAHxdeegoSywyDCohgfPsof1qJXLJjcsG.QS2"
-# Disable control panel if you don't need the web UI
+  secret-key: $2a$10$8FIcHiBWau/8bhLqcAHxdeegoSywyDCohgfPsof1qJXLJjcsG.QS2
   disable-control-panel: false
-# GitHub repository for management panel assets
-  panel-github-repository: "https://github.com/router-for-me/Cli-Proxy-API-Management-Center"
-# Proxy URL for outbound requests (if behind corporate proxy)
-proxy-url: ""
-# =============================================================================
-# Performance & Reliability
-# =============================================================================
-
-# Disable high-overhead middleware for production (reduces memory under load)
+  panel-github-repository: https://github.com/router-for-me/Cli-Proxy-API-Management-Center
 commercial-mode: true
-# Request retry settings
-request-retry: 1
+request-retry: 3
 max-retry-interval: 30
-# Quota exceeded behavior - auto-failover
 quota-exceeded:
   switch-project: true
   switch-preview-model: true
-# Credential routing strategy: round-robin (load balance) or fill-first (use one until exhausted)
 routing:
-  strategy: "round-robin"
-# Streaming behavior for SSE connections
+  strategy: fill-first
 streaming:
-  keepalive-seconds: 15 # Prevent idle timeouts
-  bootstrap-retries: 1 # Retry before first byte sent
-# Keep-alive for non-streaming responses (seconds, 0 = disabled)
+  keepalive-seconds: 15
+  bootstrap-retries: 1
 nonstream-keepalive-interval: 30
-# =============================================================================
-# Logging & Monitoring
-# =============================================================================
-
-# Debug mode - enables detailed logging
 debug: true
-# Enable detailed request/response logging
 request-log: true
-# Write logs to rotating files (recommended for servers)
 logging-to-file: true
-# Max total log size in MB (0 = unlimited)
-logs-max-total-size-mb: 50
-# Enable usage statistics aggregation
+logs-max-total-size-mb: 500
 usage-statistics-enabled: true
-# =============================================================================
-# Security
-# =============================================================================
-
-# Require prefix match for model requests
 force-model-prefix: false
-# WebSocket API authentication
 ws-auth: true
-# OAuth browser mode (not typically used on headless servers)
 incognito-browser: false
-# =============================================================================
-# Provider Configurations (uncomment and configure as needed)
-# =============================================================================
-
-# Gemini API keys
-# gemini-api-key:
-#   - api-key: "AIzaSy..."
-#     prefix: ""
-#     models:
-#       - name: "gemini-2.5-flash"
-#         alias: "flash"
-
-# Codex API keys
-# codex-api-key:
-#   - api-key: "sk-..."
-#     prefix: ""
-
-# =============================================================================
-# Amp Integration (if using Amp CLI)
-# =============================================================================
-
-# ampcode:
-#   upstream-url: "https://ampcode.com"
-#   upstream-api-key: ""
-#   restrict-management-to-localhost: false
-#   force-model-mappings: false
-#   model-mappings:
-#     - from: "claude-opus-4-5-20251101"
-#       to: "gemini-claude-opus-4-5-thinking"
-
-# =============================================================================
-# OAuth Model Mappings (rename models for clients)
-# =============================================================================
-
-# oauth-model-mappings:
-#   antigravity:
-#     - name: "gemini-3-pro-preview"
-#       alias: "g3p"
-#   gemini-cli:
-#     - name: "gemini-2.5-pro"
-#       alias: "g2.5p"
-
-# =============================================================================
-# OAuth Excluded Models (hide models from clients)
-# =============================================================================
-
-# oauth-excluded-models:
-#   antigravity:
-#     - "*-preview"
-#   gemini-cli:
-#     - "gemini-2.5-pro-exp-*"
-
-# =============================================================================
-# Payload Modifications (inject/override request parameters)
-# =============================================================================
 payload:
   default:
     - models:
         - name: gemini-2.5-flash
-          protocol: ""
         - name: gemini-2.5-flash-lite
-          protocol: ""
       params:
         generationConfig.thinkingConfig.thinkingBudget: 24576
     - models:
         - name: gemini-3-pro-preview
-          protocol: ""
         - name: gemini-3-pro-image-preview
-          protocol: ""
         - name: gemini-3-flash-preview
-          protocol: ""
         - name: gemini-2.5-computer-use-preview-10-2025
-          protocol: ""
       params:
         generationConfig.thinkingConfig.thinkingBudget: 32768
     - models:
         - name: copilot-gpt-5.1-codex-max
-          protocol: ""
         - name: copilot-gpt-5.2
-          protocol: ""
         - name: copilot-gpt-5.2-codex
-          protocol: ""
+        - name: copilot-gpt-5.3
+        - name: copilot-gpt-5.3-codex
       params:
         reasoning.effort: xhigh
         reasoning.summary: detailed
     - models:
         - name: copilot-gpt-5.1-codex-mini
-          protocol: ""
       params:
         reasoning.effort: high
         reasoning.summary: detailed
     - models:
         - name: copilot-claude-haiku-4.5
-          protocol: ""
         - name: copilot-claude-opus-4.5
-          protocol: ""
         - name: copilot-claude-sonnet-4.5
-          protocol: ""
       params:
         thinking.budget_tokens: 32000
-# GitHub Copilot Claude Opus 4.6 - 64K thinking budget
     - models:
         - name: copilot-claude-opus-4.6
-          protocol: ""
       params:
         thinking.budget_tokens: 64000
-# Codex GPT models - max reasoning effort
     - models:
         - name: gpt-5.1-codex-max
-          protocol: ""
         - name: gpt-5.2
-          protocol: ""
         - name: gpt-5.2-codex
-          protocol: ""
+        - name: gpt-5.3
+        - name: gpt-5.3-codex
       params:
         reasoning.effort: xhigh
         reasoning.summary: detailed
         text.verbosity: medium
     - models:
         - name: glm-4.7
-          protocol: ""
         - name: minimax-m2.1
-          protocol: ""
       params:
         reasoning_effort: high
 openai-compatibility: []

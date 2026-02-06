@@ -73,6 +73,8 @@ func tokenizerForModel(model string) (*TokenizerWrapper, error) {
 	switch {
 	case sanitized == "":
 		enc, err = tokenizer.Get(tokenizer.Cl100kBase)
+	case strings.HasPrefix(sanitized, "gpt-5.3"):
+		enc, err = tokenizer.ForModel(tokenizer.GPT5)
 	case strings.HasPrefix(sanitized, "gpt-5.2"):
 		enc, err = tokenizer.ForModel(tokenizer.GPT5)
 	case strings.HasPrefix(sanitized, "gpt-5.1"):
