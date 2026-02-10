@@ -83,4 +83,13 @@ Read relevant docs BEFORE changes. Update docs AFTER changes.
 | Configuration | `docs/configuration.md` |
 | SDK Embedding | `docs/sdk-embedding.md` |
 | Hot-Reload | `docs/watcher.md` |
+
+## Maintaining This File
+
+| DO | DON'T |
+|----|-------|
+| Project-specific info only | Duplicate global rules |
+| Point to code, not copy | Duplicate code snippets |
+| Update when patterns change | List every edge case |
+| Describe capabilities | List file paths |
 | Deployment | `docs/deployment.md` |
