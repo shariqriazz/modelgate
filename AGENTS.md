@@ -1,12 +1,8 @@
 # AGENTS.md
 
-This file provides guidance to AI agents when working with code in this repository.
-
 ## ModelGate - AI/LLM API Gateway Proxy
 
 A high-performance API gateway that provides unified OpenAI/Gemini/Claude-compatible interfaces for multiple AI providers (Antigravity, Codex, Qwen, IFlow, GitHub Copilot). Handles OAuth credential management, load balancing, request/response translation, and streaming.
-
----
 
 ## Commands
 
@@ -34,8 +30,6 @@ docker build -t modelgate .
 ./modelgate -github-copilot-login
 ```
 
----
-
 ## Architecture
 
 Go 1.24 | Gin HTTP | tidwall/gjson | OAuth 2.0 | YAML config | Docker
@@ -60,8 +54,6 @@ Go 1.24 | Gin HTTP | tidwall/gjson | OAuth 2.0 | YAML config | Docker
 3. Executor sends request to upstream provider with auth
 4. Response translated back to requested format
 
----
-
 ## Critical Patterns
 
 - **Executor per provider**: Each provider (antigravity, codex, copilot, etc.) has its own executor in `internal/runtime/executor/`. Executors handle auth injection, streaming, and provider-specific quirks.
@@ -71,79 +63,24 @@ Go 1.24 | Gin HTTP | tidwall/gjson | OAuth 2.0 | YAML config | Docker
 - **Streaming uses SSE**: All streaming responses use Server-Sent Events format. Streaming code paths are separate from non-streaming.
 - **tidwall/gjson for JSON**: Use `gjson.Get()`/`sjson.Set()` for JSON manipulation, not `encoding/json` struct marshaling for performance-critical paths.
 
----
+## Modularization
 
-## Documentation Cross-References
+- Executor pattern: `{provider}_executor.go` in `internal/runtime/executor/`
+- Translator pattern: `{source}_{target}_request.go` / `{source}_{target}_response.go`
+- Use `_helpers.go` suffix for shared utilities within a package
+
+## Documentation
+
+Read relevant docs BEFORE changes. Update docs AFTER changes.
 
 | Area | Doc |
 |------|-----|
-| Architecture | [`docs/architecture.md`](docs/architecture.md) |
-| Providers | [`docs/providers.md`](docs/providers.md) |
-| Translators | [`docs/translators.md`](docs/translators.md) |
-| Authentication | [`docs/authentication.md`](docs/authentication.md) |
-| API Endpoints | [`docs/api-endpoints.md`](docs/api-endpoints.md) |
-| Configuration | [`docs/configuration.md`](docs/configuration.md) |
-| SDK Embedding | [`docs/sdk-embedding.md`](docs/sdk-embedding.md) |
-| Hot-Reload | [`docs/watcher.md`](docs/watcher.md) |
-| Deployment | [`docs/deployment.md`](docs/deployment.md) |
-
-**Read the relevant doc BEFORE making changes. Update the doc AFTER making changes.**
-
----
-
-## Code Quality
-
-- **Max file size**: 500-600 LOC strict. Split larger files into focused modules.
-- **Read before modifying** - understand existing patterns first
-- **Modularization applies to ALL code**: frontend, backend, utilities - no exceptions
-
----
-
-## Modularization Rules (Go)
-
-### General Principles
-- **300 LOC threshold**: Start planning to split when approaching 300 LOC
-- **500-600 LOC hard limit**: Never exceed - refactor immediately
-- **Single responsibility**: Each file/module should do one thing well
-
-### Go-Specific Patterns
-- Package per feature: `internal/{feature}/`
-- Interface definitions separate from implementations
-- Keep packages focused and cohesive
-- Use `_helpers.go` suffix for shared utilities within a package
-- Executor pattern: `{provider}_executor.go` in `internal/runtime/executor/`
-- Translator pattern: `{source}_{target}_request.go` / `{source}_{target}_response.go`
-
-### When to Split
-- File exceeds 300 LOC
-- Multiple distinct responsibilities
-- Reusable logic that could be shared
-- Complex logic that deserves isolation
-
----
-
-## Development Workflow
-
-1. Read this file and relevant code before changes
-2. Make focused changes (avoid over-engineering)
-3. Run `go test ./...` before commits
-4. After code changes: update relevant docs and AGENTS.md if needed
-5. **Always ask before commit/push** - permission for one commit does NOT carry over to subsequent commits
-
----
-
-## Subagent Usage
-
-Use subagents liberally for parallel work. Run independent agents concurrently (different files/concerns). Only sequence agents that modify the same files.
-
----
-
-## Maintaining This File
-
-**Target: <300 lines.** Loads into every AI session.
-
-| DO | DON'T |
-|----|-------|
-| Universal info only | Task-specific details |
-| Point to code, not copy | Duplicate code snippets |
-| Update when patterns change | List every edge case |
+| Architecture | `docs/architecture.md` |
+| Providers | `docs/providers.md` |
+| Translators | `docs/translators.md` |
+| Authentication | `docs/authentication.md` |
+| API Endpoints | `docs/api-endpoints.md` |
+| Configuration | `docs/configuration.md` |
+| SDK Embedding | `docs/sdk-embedding.md` |
+| Hot-Reload | `docs/watcher.md` |
+| Deployment | `docs/deployment.md` |
