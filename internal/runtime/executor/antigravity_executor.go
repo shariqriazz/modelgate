@@ -1797,6 +1797,8 @@ func alias2ModelName(modelName string) string {
 		return "claude-sonnet-4-5-thinking"
 	case "gemini-claude-opus-4-5-thinking":
 		return "claude-opus-4-5-thinking"
+	case "gemini-claude-opus-4-6-thinking":
+		return "claude-opus-4-6-thinking"
 	default:
 		return modelName
 	}
