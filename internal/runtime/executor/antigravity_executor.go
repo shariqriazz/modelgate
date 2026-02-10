@@ -1772,6 +1772,8 @@ func modelName2Alias(modelName string) string {
 		return "gemini-claude-sonnet-4-5-thinking"
 	case "claude-opus-4-5-thinking":
 		return "gemini-claude-opus-4-5-thinking"
+	case "claude-opus-4-6-thinking":
+		return "gemini-claude-opus-4-6-thinking"
 	case "chat_20706", "chat_23310", "gemini-2.5-flash-thinking", "gemini-3-pro-low", "gemini-2.5-pro":
 		return ""
 	default:
