@@ -138,7 +138,15 @@ func (a *Applier) applyLevelFormat(body []byte, config thinking.ThinkingConfig) 
 
 	level := string(config.Level)
 	result, _ = sjson.SetBytes(result, "generationConfig.thinkingConfig.thinkingLevel", level)
-	result, _ = sjson.SetBytes(result, "generationConfig.thinkingConfig.includeThoughts", true)
+
+	// Respect user's explicit includeThoughts setting from original body; default to true if not set
+	includeThoughts := true
+	if inc := gjson.GetBytes(body, "generationConfig.thinkingConfig.includeThoughts"); inc.Exists() {
+		includeThoughts = inc.Bool()
+	} else if inc := gjson.GetBytes(body, "generationConfig.thinkingConfig.include_thoughts"); inc.Exists() {
+		includeThoughts = inc.Bool()
+	}
+	result, _ = sjson.SetBytes(result, "generationConfig.thinkingConfig.includeThoughts", includeThoughts)
 	return result, nil
 }
 
@@ -159,9 +167,24 @@ func (a *Applier) applyBudgetFormat(body []byte, config thinking.ThinkingConfig)
 		return result, nil
 	}
 
-	includeThoughts := budget > 0
-	if config.Mode == thinking.ModeAuto {
-		includeThoughts = true
+	// Determine includeThoughts: respect user's explicit setting from original body if provided
+	var includeThoughts bool
+	var userSetIncludeThoughts bool
+	if inc := gjson.GetBytes(body, "generationConfig.thinkingConfig.includeThoughts"); inc.Exists() {
+		includeThoughts = inc.Bool()
+		userSetIncludeThoughts = true
+	} else if inc := gjson.GetBytes(body, "generationConfig.thinkingConfig.include_thoughts"); inc.Exists() {
+		includeThoughts = inc.Bool()
+		userSetIncludeThoughts = true
+	}
+
+	if !userSetIncludeThoughts {
+		switch config.Mode {
+		case thinking.ModeAuto:
+			includeThoughts = true
+		default:
+			includeThoughts = budget > 0
+		}
 	}
 
 	result, _ = sjson.SetBytes(result, "generationConfig.thinkingConfig.thinkingBudget", budget)
