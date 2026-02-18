@@ -334,7 +334,7 @@ func ConvertOpenAIRequestToAntigravity(modelName string, inputRawJSON []byte, _ 
 		}
 	}
 
-	// tools -> request.tools[0].functionDeclarations + request.tools[0].googleSearch passthrough
+	// tools -> request.tools[0].functionDeclarations + request.tools[0].googleSearch/codeExecution/urlContext passthrough
 	tools := gjson.GetBytes(rawJSON, "tools")
 	if tools.IsArray() && len(tools.Array()) > 0 {
 		toolNode := []byte(`{}`)
@@ -395,6 +395,24 @@ func ConvertOpenAIRequestToAntigravity(modelName string, inputRawJSON []byte, _ 
 				toolNode, errSet = sjson.SetRawBytes(toolNode, "googleSearch", []byte(gs.Raw))
 				if errSet != nil {
 					log.Warnf("Failed to set googleSearch tool: %v", errSet)
+					continue
+				}
+				hasTool = true
+			}
+			if ce := t.Get("code_execution"); ce.Exists() {
+				var errSet error
+				toolNode, errSet = sjson.SetRawBytes(toolNode, "codeExecution", []byte(ce.Raw))
+				if errSet != nil {
+					log.Warnf("Failed to set codeExecution tool: %v", errSet)
+					continue
+				}
+				hasTool = true
+			}
+			if uc := t.Get("url_context"); uc.Exists() {
+				var errSet error
+				toolNode, errSet = sjson.SetRawBytes(toolNode, "urlContext", []byte(uc.Raw))
+				if errSet != nil {
+					log.Warnf("Failed to set urlContext tool: %v", errSet)
 					continue
 				}
 				hasTool = true
