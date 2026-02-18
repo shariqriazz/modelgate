@@ -133,6 +133,12 @@ func (e *GitHubCopilotExecutor) Execute(ctx context.Context, auth *modelgateauth
 	body = flattenAssistantContent(body)
 
 	if !isCopilotClaudeModel(req.Model) {
+		if isGPT5Model(req.Model) {
+			body = normalizeGitHubCopilotResponsesTools(body)
+		} else {
+			body = normalizeGitHubCopilotChatTools(body)
+		}
+
 		thinkingProvider := "openai"
 		if isGPT5Model(req.Model) {
 			thinkingProvider = "codex"
@@ -249,6 +255,12 @@ func (e *GitHubCopilotExecutor) ExecuteStream(ctx context.Context, auth *modelga
 	body = flattenAssistantContent(body)
 
 	if !isCopilotClaudeModel(req.Model) {
+		if isGPT5Model(req.Model) {
+			body = normalizeGitHubCopilotResponsesTools(body)
+		} else {
+			body = normalizeGitHubCopilotChatTools(body)
+		}
+
 		thinkingProvider := "openai"
 		if isGPT5Model(req.Model) {
 			thinkingProvider = "codex"
@@ -597,6 +609,106 @@ func flattenAssistantContent(body []byte) []byte {
 		result, _ = sjson.SetBytes(result, path, joined)
 	}
 	return result
+}
+
+func normalizeGitHubCopilotChatTools(body []byte) []byte {
+	tools := gjson.GetBytes(body, "tools")
+	if tools.Exists() {
+		filtered := "[]"
+		if tools.IsArray() {
+			for _, tool := range tools.Array() {
+				if tool.Get("type").String() != "function" {
+					continue
+				}
+				filtered, _ = sjson.SetRaw(filtered, "-1", tool.Raw)
+			}
+		}
+		body, _ = sjson.SetRawBytes(body, "tools", []byte(filtered))
+	}
+
+	toolChoice := gjson.GetBytes(body, "tool_choice")
+	if !toolChoice.Exists() {
+		return body
+	}
+	if toolChoice.Type == gjson.String {
+		switch toolChoice.String() {
+		case "auto", "none", "required":
+			return body
+		}
+	}
+	body, _ = sjson.SetBytes(body, "tool_choice", "auto")
+	return body
+}
+
+func normalizeGitHubCopilotResponsesTools(body []byte) []byte {
+	tools := gjson.GetBytes(body, "tools")
+	if tools.Exists() {
+		filtered := "[]"
+		if tools.IsArray() {
+			for _, tool := range tools.Array() {
+				toolType := tool.Get("type").String()
+				// Accept OpenAI format (type="function") and Claude format
+				// (no type field, but has top-level name + input_schema).
+				if toolType != "" && toolType != "function" {
+					continue
+				}
+				name := tool.Get("name").String()
+				if name == "" {
+					name = tool.Get("function.name").String()
+				}
+				if name == "" {
+					continue
+				}
+				normalized := `{"type":"function","name":""}`
+				normalized, _ = sjson.Set(normalized, "name", name)
+				if desc := tool.Get("description").String(); desc != "" {
+					normalized, _ = sjson.Set(normalized, "description", desc)
+				} else if desc = tool.Get("function.description").String(); desc != "" {
+					normalized, _ = sjson.Set(normalized, "description", desc)
+				}
+				if params := tool.Get("parameters"); params.Exists() {
+					normalized, _ = sjson.SetRaw(normalized, "parameters", params.Raw)
+				} else if params = tool.Get("function.parameters"); params.Exists() {
+					normalized, _ = sjson.SetRaw(normalized, "parameters", params.Raw)
+				} else if params = tool.Get("input_schema"); params.Exists() {
+					normalized, _ = sjson.SetRaw(normalized, "parameters", params.Raw)
+				}
+				filtered, _ = sjson.SetRaw(filtered, "-1", normalized)
+			}
+		}
+		body, _ = sjson.SetRawBytes(body, "tools", []byte(filtered))
+	}
+
+	toolChoice := gjson.GetBytes(body, "tool_choice")
+	if !toolChoice.Exists() {
+		return body
+	}
+	if toolChoice.Type == gjson.String {
+		switch toolChoice.String() {
+		case "auto", "none", "required":
+			return body
+		default:
+			body, _ = sjson.SetBytes(body, "tool_choice", "auto")
+			return body
+		}
+	}
+	if toolChoice.Type == gjson.JSON {
+		choiceType := toolChoice.Get("type").String()
+		if choiceType == "function" {
+			name := toolChoice.Get("name").String()
+			if name == "" {
+				name = toolChoice.Get("function.name").String()
+			}
+			if name != "" {
+				normalized := `{"type":"function","name":""}`
+				normalized, _ = sjson.Set(normalized, "name", name)
+				body, _ = sjson.SetRawBytes(body, "tool_choice", []byte(normalized))
+				return body
+			}
+		}
+	}
+	body, _ = sjson.SetBytes(body, "tool_choice", "auto")
+	return body
 }
 
 // isHTTPSuccess checks if the status code indicates success (2xx).
