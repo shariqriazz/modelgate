@@ -76,6 +76,8 @@ func ConvertClaudeRequestToOpenAI(modelName string, inputRawJSON []byte, stream 
 						out, _ = sjson.Set(out, "reasoning_effort", effort)
 					}
 				}
+			case "adaptive":
+				out, _ = sjson.Set(out, "reasoning_effort", "xhigh")
 			case "disabled":
 				if effort, ok := util.ThinkingBudgetToEffort(modelName, 0); ok && effort != "" {
 					out, _ = sjson.Set(out, "reasoning_effort", effort)

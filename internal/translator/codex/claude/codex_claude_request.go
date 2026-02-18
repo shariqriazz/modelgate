@@ -225,6 +225,8 @@ func ConvertClaudeRequestToCodex(modelName string, inputRawJSON []byte, _ bool) 
 					}
 				}
 			}
+		case "adaptive":
+			reasoningEffort = "xhigh"
 		case "disabled":
 			if effort, ok := util.ThinkingBudgetToEffort(modelName, 0); ok && effort != "" {
 				reasoningEffort = effort
