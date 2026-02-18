@@ -468,11 +468,12 @@ func (e *GitHubCopilotExecutor) applyHeaders(r *http.Request, apiToken string, f
 	}
 }
 
-// normalizeModel strips the "copilot-" prefix from model names before sending to GitHub Copilot API.
-// This allows us to use prefixed model IDs internally (e.g., "copilot-gpt-5.2") to avoid conflicts
-// with other providers while still sending the correct model name to GitHub Copilot.
+// normalizeModel strips the "copilot-" prefix and any thinking suffix (e.g. "(medium)")
+// from model names before sending to GitHub Copilot API. This allows prefixed model IDs
+// internally while sending the correct bare model name upstream.
 func (e *GitHubCopilotExecutor) normalizeModel(model string, body []byte) []byte {
 	normalized := strings.TrimPrefix(model, "copilot-")
+	normalized = thinking.ParseSuffix(normalized).ModelName
 	if normalized != model {
 		body, _ = sjson.SetBytes(body, "model", normalized)
 	}
