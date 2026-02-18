@@ -596,6 +596,17 @@ func flattenAssistantContent(body []byte) []byte {
 		if !content.Exists() || !content.IsArray() {
 			continue
 		}
+		// Skip flattening if the content contains non-text blocks (tool_use, thinking, etc.)
+		hasNonText := false
+		for _, part := range content.Array() {
+			if t := part.Get("type").String(); t != "" && t != "text" {
+				hasNonText = true
+				break
+			}
+		}
+		if hasNonText {
+			continue
+		}
 		var textParts []string
 		for _, part := range content.Array() {
 			if part.Get("type").String() == "text" {
