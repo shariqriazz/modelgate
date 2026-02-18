@@ -240,15 +240,31 @@ func ConvertGeminiRequestToCodex(modelName string, inputRawJSON []byte, _ bool) 
 	// Fixed flags aligning with Codex expectations
 	out, _ = sjson.Set(out, "parallel_tool_calls", true)
 
-	// Convert thinkingBudget to reasoning.effort for level-based models
+	// Convert Gemini thinkingConfig to Codex reasoning.effort.
+	// Note: Google official Python SDK sends snake_case fields (thinking_level/thinking_budget).
 	reasoningEffort := "medium" // default
 	if genConfig := root.Get("generationConfig"); genConfig.Exists() {
 		if thinkingConfig := genConfig.Get("thinkingConfig"); thinkingConfig.Exists() && thinkingConfig.IsObject() {
 			if util.ModelUsesThinkingLevels(modelName) {
-				if thinkingBudget := thinkingConfig.Get("thinkingBudget"); thinkingBudget.Exists() {
-					budget := int(thinkingBudget.Int())
-					if effort, ok := util.ThinkingBudgetToEffort(modelName, budget); ok && effort != "" {
+				thinkingLevel := thinkingConfig.Get("thinkingLevel")
+				if !thinkingLevel.Exists() {
+					thinkingLevel = thinkingConfig.Get("thinking_level")
+				}
+				if thinkingLevel.Exists() {
+					effort := strings.ToLower(strings.TrimSpace(thinkingLevel.String()))
+					if effort != "" {
 						reasoningEffort = effort
+					}
+				} else {
+					thinkingBudget := thinkingConfig.Get("thinkingBudget")
+					if !thinkingBudget.Exists() {
+						thinkingBudget = thinkingConfig.Get("thinking_budget")
+					}
+					if thinkingBudget.Exists() {
+						budget := int(thinkingBudget.Int())
+						if effort, ok := util.ThinkingBudgetToEffort(modelName, budget); ok && effort != "" {
+							reasoningEffort = effort
+						}
 					}
 				}
 			}

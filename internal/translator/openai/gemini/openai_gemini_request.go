@@ -76,13 +76,29 @@ func ConvertGeminiRequestToOpenAI(modelName string, inputRawJSON []byte, stream 
 			}
 		}
 
-		// Convert thinkingBudget to reasoning_effort
-		// Always perform conversion to support allowCompat models that may not be in registry
+		// Map Gemini thinkingConfig to OpenAI reasoning_effort.
+		// Always perform conversion to support allowCompat models that may not be in registry.
+		// Note: Google official Python SDK sends snake_case fields (thinking_level/thinking_budget).
 		if thinkingConfig := genConfig.Get("thinkingConfig"); thinkingConfig.Exists() && thinkingConfig.IsObject() {
-			if thinkingBudget := thinkingConfig.Get("thinkingBudget"); thinkingBudget.Exists() {
-				budget := int(thinkingBudget.Int())
-				if effort, ok := util.ThinkingBudgetToEffort(modelName, budget); ok && effort != "" {
+			thinkingLevel := thinkingConfig.Get("thinkingLevel")
+			if !thinkingLevel.Exists() {
+				thinkingLevel = thinkingConfig.Get("thinking_level")
+			}
+			if thinkingLevel.Exists() {
+				effort := strings.ToLower(strings.TrimSpace(thinkingLevel.String()))
+				if effort != "" {
 					out, _ = sjson.Set(out, "reasoning_effort", effort)
+				}
+			} else {
+				thinkingBudget := thinkingConfig.Get("thinkingBudget")
+				if !thinkingBudget.Exists() {
+					thinkingBudget = thinkingConfig.Get("thinking_budget")
+				}
+				if thinkingBudget.Exists() {
+					budget := int(thinkingBudget.Int())
+					if effort, ok := util.ThinkingBudgetToEffort(modelName, budget); ok && effort != "" {
+						out, _ = sjson.Set(out, "reasoning_effort", effort)
+					}
 				}
 			}
 		}
