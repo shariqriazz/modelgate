@@ -115,9 +115,11 @@ func (e *GitHubCopilotExecutor) Execute(ctx context.Context, auth *modelgateauth
 	defer reporter.trackFailure(ctx, &err)
 
 	from := opts.SourceFormat
-	// Use "codex" translator for GPT-5 models (responses API), "openai" for others (chat completions)
+	// Use "codex" translator for GPT-5 models (responses API), "openai" for others (chat completions).
+	// For Copilot Claude models, use "claude" only when the source is also claude (Messages API);
+	// otherwise use "openai" to route through /chat/completions which returns OpenAI format natively.
 	toFormat := "openai"
-	if isCopilotClaudeModel(req.Model) {
+	if isCopilotClaudeModel(req.Model) && from == sdktranslator.FormatClaude {
 		toFormat = "claude"
 	} else if isGPT5Model(req.Model) {
 		toFormat = "codex"
@@ -237,9 +239,11 @@ func (e *GitHubCopilotExecutor) ExecuteStream(ctx context.Context, auth *modelga
 	defer reporter.trackFailure(ctx, &err)
 
 	from := opts.SourceFormat
-	// Use "codex" translator for GPT-5 models (responses API), "openai" for others (chat completions)
+	// Use "codex" translator for GPT-5 models (responses API), "openai" for others (chat completions).
+	// For Copilot Claude models, use "claude" only when the source is also claude (Messages API);
+	// otherwise use "openai" to route through /chat/completions which returns OpenAI format natively.
 	toFormat := "openai"
-	if isCopilotClaudeModel(req.Model) {
+	if isCopilotClaudeModel(req.Model) && from == sdktranslator.FormatClaude {
 		toFormat = "claude"
 	} else if isGPT5Model(req.Model) {
 		toFormat = "codex"
@@ -348,6 +352,9 @@ func (e *GitHubCopilotExecutor) ExecuteStream(ctx context.Context, auth *modelga
 		scanner := bufio.NewScanner(httpResp.Body)
 		scanner.Buffer(nil, maxScannerBufferSize)
 		var param any
+		// When no response translator is registered, the stream is passed through
+		// verbatim. The scanner strips newlines, so we need to re-add them.
+		ssePassthrough := !sdktranslator.HasResponseTransformer(from, to)
 
 		for scanner.Scan() {
 			line := scanner.Bytes()
@@ -375,6 +382,14 @@ func (e *GitHubCopilotExecutor) ExecuteStream(ctx context.Context, auth *modelga
 			}
 
 			chunks := sdktranslator.TranslateStream(ctx, to, from, req.Model, bytes.Clone(opts.OriginalRequest), body, bytes.Clone(line), &param)
+			// When no response translator is registered (e.g. claude→claude passthrough),
+			// raw scanner lines are returned without newlines. Append \n to each line to
+			// preserve SSE framing for the handler.
+			if ssePassthrough {
+				for i := range chunks {
+					chunks[i] = chunks[i] + "\n"
+				}
+			}
 			for i := range chunks {
 				out <- modelgateexecutor.StreamChunk{Payload: []byte(chunks[i])}
 			}
