@@ -1063,7 +1063,7 @@ func GetGitHubCopilotModels() []*ModelInfo {
 			ContextLength:       128000,
 			MaxCompletionTokens: 16000,
 			Thinking:            &ThinkingSupport{Min: 1024, Max: 32000, ZeroAllowed: false, DynamicAllowed: true},
-			SupportedEndpoints:  []string{"/chat/completions"},
+			SupportedEndpoints:  []string{"/chat/completions", "/v1/messages"},
 		},
 		{
 			ID:                  "copilot-claude-opus-4.5",
@@ -1076,7 +1076,7 @@ func GetGitHubCopilotModels() []*ModelInfo {
 			ContextLength:       128000,
 			MaxCompletionTokens: 16000,
 			Thinking:            &ThinkingSupport{Min: 1024, Max: 32000, ZeroAllowed: false, DynamicAllowed: true},
-			SupportedEndpoints:  []string{"/chat/completions"},
+			SupportedEndpoints:  []string{"/chat/completions", "/v1/messages"},
 		},
 		{
 			ID:                  "copilot-claude-opus-4.6",
@@ -1089,7 +1089,20 @@ func GetGitHubCopilotModels() []*ModelInfo {
 			ContextLength:       128000,
 			MaxCompletionTokens: 64000,
 			Thinking:            &ThinkingSupport{Min: 1024, Max: 64000, ZeroAllowed: false, DynamicAllowed: true},
-			SupportedEndpoints:  []string{"/chat/completions"},
+			SupportedEndpoints:  []string{"/chat/completions", "/v1/messages"},
+		},
+		{
+			ID:                  "copilot-claude-sonnet-4.6",
+			Object:              "model",
+			Created:             now,
+			OwnedBy:             "github-copilot",
+			Type:                "github-copilot",
+			DisplayName:         "GitHub Copilot Claude Sonnet 4.6",
+			Description:         "Anthropic Claude Sonnet 4.6 via GitHub Copilot",
+			ContextLength:       128000,
+			MaxCompletionTokens: 32000,
+			Thinking:            &ThinkingSupport{Min: 1024, Max: 32000, ZeroAllowed: false, DynamicAllowed: true},
+			SupportedEndpoints:  []string{"/chat/completions", "/v1/messages"},
 		},
 		{
 			ID:                  "copilot-claude-sonnet-4.5",
@@ -1102,7 +1115,7 @@ func GetGitHubCopilotModels() []*ModelInfo {
 			ContextLength:       128000,
 			MaxCompletionTokens: 16000,
 			Thinking:            &ThinkingSupport{Min: 1024, Max: 32000, ZeroAllowed: false, DynamicAllowed: true},
-			SupportedEndpoints:  []string{"/chat/completions"},
+			SupportedEndpoints:  []string{"/chat/completions", "/v1/messages"},
 		},
 		{
 			ID:                  "copilot-gemini-3-flash-preview",
