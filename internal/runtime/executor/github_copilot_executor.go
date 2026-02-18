@@ -15,6 +15,7 @@ import (
 	copilotauth "github.com/shariqriazz/modelgate/internal/auth/copilot"
 	"github.com/shariqriazz/modelgate/internal/config"
 	"github.com/shariqriazz/modelgate/internal/registry"
+	"github.com/shariqriazz/modelgate/internal/thinking"
 	"github.com/shariqriazz/modelgate/internal/util"
 	modelgateauth "github.com/shariqriazz/modelgate/sdk/cliproxy/auth"
 	modelgateexecutor "github.com/shariqriazz/modelgate/sdk/cliproxy/executor"
@@ -129,6 +130,18 @@ func (e *GitHubCopilotExecutor) Execute(ctx context.Context, auth *modelgateauth
 	originalTranslated := sdktranslator.TranslateRequest(from, to, req.Model, originalPayload, false)
 	body := sdktranslator.TranslateRequest(from, to, req.Model, bytes.Clone(req.Payload), false)
 	body = e.normalizeModel(req.Model, body)
+
+	if !isCopilotClaudeModel(req.Model) {
+		thinkingProvider := "openai"
+		if isGPT5Model(req.Model) {
+			thinkingProvider = "codex"
+		}
+		body, err = thinking.ApplyThinking(body, req.Model, from.String(), thinkingProvider, e.Identifier())
+		if err != nil {
+			return resp, err
+		}
+	}
+
 	requestedModel := payloadRequestedModel(opts, req.Model)
 	body = applyPayloadConfigWithRoot(e.cfg, req.Model, to.String(), "", body, originalTranslated, requestedModel)
 	if isCopilotClaudeFormat(to) {
@@ -232,6 +245,18 @@ func (e *GitHubCopilotExecutor) ExecuteStream(ctx context.Context, auth *modelga
 	originalTranslated := sdktranslator.TranslateRequest(from, to, req.Model, originalPayload, false)
 	body := sdktranslator.TranslateRequest(from, to, req.Model, bytes.Clone(req.Payload), true)
 	body = e.normalizeModel(req.Model, body)
+
+	if !isCopilotClaudeModel(req.Model) {
+		thinkingProvider := "openai"
+		if isGPT5Model(req.Model) {
+			thinkingProvider = "codex"
+		}
+		body, err = thinking.ApplyThinking(body, req.Model, from.String(), thinkingProvider, e.Identifier())
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	requestedModel := payloadRequestedModel(opts, req.Model)
 	body = applyPayloadConfigWithRoot(e.cfg, req.Model, to.String(), "", body, originalTranslated, requestedModel)
 	if isCopilotClaudeFormat(to) {
