@@ -125,23 +125,28 @@ func (a *Applier) applyBudgetFormat(body []byte, config thinking.ThinkingConfig,
 	result, _ = sjson.DeleteBytes(result, "request.generationConfig.thinkingConfig.include_thoughts")
 
 	budget := config.Budget
-	includeThoughts := false
-	switch config.Mode {
-	case thinking.ModeNone:
-		includeThoughts = false
-	case thinking.ModeAuto:
-		includeThoughts = true
-	default:
-		includeThoughts = budget > 0
-	}
 
-	// Apply Claude-specific constraints
+	// Apply Claude-specific constraints first to get the final budget value
 	if isClaude && modelInfo != nil {
 		budget, result = a.normalizeClaudeBudget(budget, result, modelInfo)
 		// Check if budget was removed entirely
 		if budget == -2 {
 			return result, nil
 		}
+	}
+
+	// For ModeNone, always set includeThoughts to false regardless of user setting.
+	// This ensures that when user requests budget=0 (disable thinking output),
+	// the includeThoughts is correctly set to false even if budget is clamped to min.
+	if config.Mode == thinking.ModeNone {
+		result, _ = sjson.SetBytes(result, "request.generationConfig.thinkingConfig.thinkingBudget", budget)
+		result, _ = sjson.SetBytes(result, "request.generationConfig.thinkingConfig.includeThoughts", false)
+		return result, nil
+	}
+
+	includeThoughts := budget > 0
+	if config.Mode == thinking.ModeAuto {
+		includeThoughts = true
 	}
 
 	result, _ = sjson.SetBytes(result, "request.generationConfig.thinkingConfig.thinkingBudget", budget)

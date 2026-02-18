@@ -110,14 +110,19 @@ func (a *Applier) applyBudgetFormat(body []byte, config thinking.ThinkingConfig)
 	result, _ = sjson.DeleteBytes(result, "request.generationConfig.thinkingConfig.include_thoughts")
 
 	budget := config.Budget
-	includeThoughts := false
-	switch config.Mode {
-	case thinking.ModeNone:
-		includeThoughts = false
-	case thinking.ModeAuto:
+
+	// For ModeNone, always set includeThoughts to false regardless of user setting.
+	// This ensures that when user requests budget=0 (disable thinking output),
+	// the includeThoughts is correctly set to false even if budget is clamped to min.
+	if config.Mode == thinking.ModeNone {
+		result, _ = sjson.SetBytes(result, "request.generationConfig.thinkingConfig.thinkingBudget", budget)
+		result, _ = sjson.SetBytes(result, "request.generationConfig.thinkingConfig.includeThoughts", false)
+		return result, nil
+	}
+
+	includeThoughts := budget > 0
+	if config.Mode == thinking.ModeAuto {
 		includeThoughts = true
-	default:
-		includeThoughts = budget > 0
 	}
 
 	result, _ = sjson.SetBytes(result, "request.generationConfig.thinkingConfig.thinkingBudget", budget)
