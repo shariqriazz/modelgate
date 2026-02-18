@@ -38,11 +38,11 @@ const (
 	maxScannerBufferSize = 20_971_520
 
 	// Copilot API header values.
-	copilotUserAgent     = "GithubCopilot/1.0"
+	copilotUserAgent     = "GitHubCopilotChat/0.35.0"
 	copilotEditorVersion = "vscode/1.109.0-20260124"
-	copilotPluginVersion = "copilot-chat/0.37.2026013101"
+	copilotPluginVersion = "copilot-chat/0.35.0"
 	copilotIntegrationID = "vscode-chat"
-	copilotOpenAIIntent  = "conversation-panel"
+	copilotOpenAIIntent  = "conversation-edits"
 	copilotAPIVersion    = "2025-10-01"
 	copilotThinkingBeta  = "interleaved-thinking-2025-05-14,context-management-2025-06-27"
 )
@@ -84,7 +84,7 @@ func (e *GitHubCopilotExecutor) PrepareRequest(req *http.Request, auth *modelgat
 	if errToken != nil {
 		return errToken
 	}
-	e.applyHeaders(req, apiToken, sdktranslator.FromString("openai"))
+	e.applyHeaders(req, apiToken, sdktranslator.FromString("openai"), nil)
 	return nil
 }
 
@@ -130,6 +130,7 @@ func (e *GitHubCopilotExecutor) Execute(ctx context.Context, auth *modelgateauth
 	originalTranslated := sdktranslator.TranslateRequest(from, to, req.Model, originalPayload, false)
 	body := sdktranslator.TranslateRequest(from, to, req.Model, bytes.Clone(req.Payload), false)
 	body = e.normalizeModel(req.Model, body)
+	body = flattenAssistantContent(body)
 
 	if !isCopilotClaudeModel(req.Model) {
 		thinkingProvider := "openai"
@@ -155,7 +156,7 @@ func (e *GitHubCopilotExecutor) Execute(ctx context.Context, auth *modelgateauth
 	if err != nil {
 		return resp, err
 	}
-	e.applyHeaders(httpReq, apiToken, to)
+	e.applyHeaders(httpReq, apiToken, to, body)
 
 	var authID, authLabel, authType, authValue string
 	if auth != nil {
@@ -245,6 +246,7 @@ func (e *GitHubCopilotExecutor) ExecuteStream(ctx context.Context, auth *modelga
 	originalTranslated := sdktranslator.TranslateRequest(from, to, req.Model, originalPayload, false)
 	body := sdktranslator.TranslateRequest(from, to, req.Model, bytes.Clone(req.Payload), true)
 	body = e.normalizeModel(req.Model, body)
+	body = flattenAssistantContent(body)
 
 	if !isCopilotClaudeModel(req.Model) {
 		thinkingProvider := "openai"
@@ -276,7 +278,7 @@ func (e *GitHubCopilotExecutor) ExecuteStream(ctx context.Context, auth *modelga
 	if err != nil {
 		return nil, err
 	}
-	e.applyHeaders(httpReq, apiToken, to)
+	e.applyHeaders(httpReq, apiToken, to, body)
 
 	var authID, authLabel, authType, authValue string
 	if auth != nil {
@@ -449,7 +451,7 @@ func (e *GitHubCopilotExecutor) ensureAPIToken(ctx context.Context, auth *modelg
 }
 
 // applyHeaders sets the required headers for GitHub Copilot API requests.
-func (e *GitHubCopilotExecutor) applyHeaders(r *http.Request, apiToken string, format sdktranslator.Format) {
+func (e *GitHubCopilotExecutor) applyHeaders(r *http.Request, apiToken string, format sdktranslator.Format, body []byte) {
 	r.Header.Set("Content-Type", "application/json")
 	r.Header.Set("Authorization", "Bearer "+apiToken)
 	r.Header.Set("Accept", "application/json")
@@ -563,6 +565,38 @@ func minThinkingBudget(model string) int {
 		return info.Thinking.Min
 	}
 	return 0
+}
+
+// flattenAssistantContent converts assistant message content from array format
+// to a joined string. GitHub Copilot requires assistant content as a string;
+// sending it as an array causes Claude models to re-answer all previous prompts.
+func flattenAssistantContent(body []byte) []byte {
+	messages := gjson.GetBytes(body, "messages")
+	if !messages.Exists() || !messages.IsArray() {
+		return body
+	}
+	result := body
+	for i, msg := range messages.Array() {
+		if msg.Get("role").String() != "assistant" {
+			continue
+		}
+		content := msg.Get("content")
+		if !content.Exists() || !content.IsArray() {
+			continue
+		}
+		var textParts []string
+		for _, part := range content.Array() {
+			if part.Get("type").String() == "text" {
+				if t := part.Get("text").String(); t != "" {
+					textParts = append(textParts, t)
+				}
+			}
+		}
+		joined := strings.Join(textParts, "")
+		path := fmt.Sprintf("messages.%d.content", i)
+		result, _ = sjson.SetBytes(result, path, joined)
+	}
+	return result
 }
 
 // isHTTPSuccess checks if the status code indicates success (2xx).
