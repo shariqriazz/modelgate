@@ -6,7 +6,6 @@
 package claude
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"strings"
@@ -60,7 +59,7 @@ func deriveSessionID(rawJSON []byte) string {
 // Returns:
 //   - []byte: The transformed request data in Gemini CLI API format
 func ConvertClaudeRequestToAntigravity(modelName string, inputRawJSON []byte, _ bool) []byte {
-	rawJSON := bytes.Clone(inputRawJSON)
+	rawJSON := inputRawJSON
 
 	// Derive session ID for signature caching
 	sessionID := deriveSessionID(rawJSON)

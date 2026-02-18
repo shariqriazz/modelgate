@@ -6,7 +6,6 @@
 package geminiCLI
 
 import (
-	"bytes"
 
 	. "github.com/shariqriazz/modelgate/internal/translator/codex/gemini"
 	"github.com/tidwall/gjson"
@@ -30,7 +29,7 @@ import (
 // Returns:
 //   - []byte: The transformed request data in Codex API format
 func ConvertGeminiCLIRequestToCodex(modelName string, inputRawJSON []byte, stream bool) []byte {
-	rawJSON := bytes.Clone(inputRawJSON)
+	rawJSON := inputRawJSON
 
 	rawJSON = []byte(gjson.GetBytes(rawJSON, "request").Raw)
 	rawJSON, _ = sjson.SetBytes(rawJSON, "model", modelName)

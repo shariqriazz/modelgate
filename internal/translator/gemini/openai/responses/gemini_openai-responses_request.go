@@ -1,7 +1,6 @@
 package responses
 
 import (
-	"bytes"
 	"strings"
 
 	"github.com/shariqriazz/modelgate/internal/translator/gemini/common"
@@ -13,7 +12,7 @@ import (
 const geminiResponsesThoughtSignature = "skip_thought_signature_validator"
 
 func ConvertOpenAIResponsesRequestToGemini(modelName string, inputRawJSON []byte, stream bool) []byte {
-	rawJSON := bytes.Clone(inputRawJSON)
+	rawJSON := inputRawJSON
 
 	// Note: modelName and stream parameters are part of the fixed method signature
 	_ = modelName // Unused but required by interface

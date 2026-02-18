@@ -6,7 +6,6 @@
 package geminiCLI
 
 import (
-	"bytes"
 
 	. "github.com/shariqriazz/modelgate/internal/translator/claude/gemini"
 	"github.com/tidwall/gjson"
@@ -30,7 +29,7 @@ import (
 // Returns:
 //   - []byte: The transformed request data in Claude Code API format
 func ConvertGeminiCLIRequestToClaude(modelName string, inputRawJSON []byte, stream bool) []byte {
-	rawJSON := bytes.Clone(inputRawJSON)
+	rawJSON := inputRawJSON
 
 	modelResult := gjson.GetBytes(rawJSON, "model")
 	// Extract the inner request object and promote it to the top level
