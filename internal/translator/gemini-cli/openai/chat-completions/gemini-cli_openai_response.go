@@ -90,6 +90,7 @@ func ConvertCliResponseToOpenAI(_ context.Context, _ string, originalRequestRawJ
 
 	// Extract and set usage metadata (token counts).
 	if usageResult := gjson.GetBytes(rawJSON, "response.usageMetadata"); usageResult.Exists() {
+		cachedTokenCount := usageResult.Get("cachedContentTokenCount").Int()
 		if candidatesTokenCountResult := usageResult.Get("candidatesTokenCount"); candidatesTokenCountResult.Exists() {
 			template, _ = sjson.Set(template, "usage.completion_tokens", candidatesTokenCountResult.Int())
 		}
@@ -101,6 +102,9 @@ func ConvertCliResponseToOpenAI(_ context.Context, _ string, originalRequestRawJ
 		template, _ = sjson.Set(template, "usage.prompt_tokens", promptTokenCount+thoughtsTokenCount)
 		if thoughtsTokenCount > 0 {
 			template, _ = sjson.Set(template, "usage.completion_tokens_details.reasoning_tokens", thoughtsTokenCount)
+		}
+		if cachedTokenCount > 0 {
+			template, _ = sjson.Set(template, "usage.prompt_tokens_details.cached_tokens", cachedTokenCount)
 		}
 	}
 
