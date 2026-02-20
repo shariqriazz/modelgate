@@ -109,7 +109,7 @@ func (e *AntigravityExecutor) HttpRequest(ctx context.Context, auth *modelgateau
 // Execute performs a non-streaming request to the Antigravity API.
 func (e *AntigravityExecutor) Execute(ctx context.Context, auth *modelgateauth.Auth, req modelgateexecutor.Request, opts modelgateexecutor.Options) (resp modelgateexecutor.Response, err error) {
 	isClaude := strings.Contains(strings.ToLower(req.Model), "claude")
-	if isClaude || strings.Contains(req.Model, "gemini-3-pro") {
+	if isClaude || strings.Contains(req.Model, "gemini-3-pro") || strings.Contains(req.Model, "gemini-3.1-pro") {
 		return e.executeClaudeNonStream(ctx, auth, req, opts)
 	}
 
@@ -1456,7 +1456,7 @@ func (e *AntigravityExecutor) buildRequest(ctx context.Context, auth *modelgatea
 		payload = []byte(strJSON)
 	}
 
-	if strings.Contains(modelName, "claude") || strings.Contains(modelName, "gemini-3-pro-preview") {
+	if strings.Contains(modelName, "claude") || strings.Contains(modelName, "gemini-3-pro-preview") || strings.Contains(modelName, "gemini-3.1-pro-preview") {
 		systemInstructionPartsResult := gjson.GetBytes(payload, "request.systemInstruction.parts")
 		payload, _ = sjson.SetBytes(payload, "request.systemInstruction.role", "user")
 		payload, _ = sjson.SetBytes(payload, "request.systemInstruction.parts.0.text", systemInstruction)
@@ -1702,7 +1702,7 @@ func geminiToAntigravity(modelName string, payload []byte, projectID string) []b
 	template, _ = sjson.Delete(template, "request.safetySettings")
 	template, _ = sjson.Set(template, "request.toolConfig.functionCallingConfig.mode", "VALIDATED")
 
-	if !strings.HasPrefix(modelName, "gemini-3-") {
+	if !strings.HasPrefix(modelName, "gemini-3-") && !strings.HasPrefix(modelName, "gemini-3.1-") {
 		if thinkingLevel := gjson.Get(template, "request.generationConfig.thinkingConfig.thinkingLevel"); thinkingLevel.Exists() {
 			template, _ = sjson.Delete(template, "request.generationConfig.thinkingConfig.thinkingLevel")
 			template, _ = sjson.Set(template, "request.generationConfig.thinkingConfig.thinkingBudget", -1)
@@ -1775,6 +1775,8 @@ func modelName2Alias(modelName string) string {
 		return "gemini-3-pro-image-preview"
 	case "gemini-3-pro-high":
 		return "gemini-3-pro-preview"
+	case "gemini-3.1-pro-high":
+		return "gemini-3.1-pro-preview"
 	case "gemini-3-flash":
 		return "gemini-3-flash-preview"
 	case "claude-sonnet-4-5":
@@ -1802,6 +1804,8 @@ func alias2ModelName(modelName string) string {
 		return "gemini-3-pro-image"
 	case "gemini-3-pro-preview":
 		return "gemini-3-pro-high"
+	case "gemini-3.1-pro-preview":
+		return "gemini-3.1-pro-high"
 	case "gemini-3-flash-preview":
 		return "gemini-3-flash"
 	case "gemini-claude-sonnet-4-5":
