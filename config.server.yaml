@@ -52,7 +52,6 @@ payload:
         - name: copilot-gpt-5.3
         - name: copilot-gpt-5.3-codex
       params:
-        reasoning.effort: xhigh
         reasoning.summary: detailed
     - models:
         - name: copilot-gpt-5.1-codex-mini
@@ -84,4 +83,11 @@ payload:
         - name: minimax-m2.1
       params:
         reasoning_effort: high
+  override:
+    - models:
+        - name: copilot-gpt-5.2
+        - name: copilot-gpt-5.2-codex
+        - name: copilot-gpt-5.3-codex
+      params:
+        reasoning.effort: xhigh
 openai-compatibility: []
