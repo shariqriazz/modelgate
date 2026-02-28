@@ -1777,17 +1777,13 @@ func modelName2Alias(modelName string) string {
 		return "gemini-3.1-pro-preview"
 	case "gemini-3-flash":
 		return "gemini-3-flash-preview"
-	case "claude-sonnet-4-5":
-		return "gemini-claude-sonnet-4-5"
-	case "claude-sonnet-4-5-thinking":
-		return "gemini-claude-sonnet-4-5-thinking"
-	case "claude-opus-4-5-thinking":
-		return "gemini-claude-opus-4-5-thinking"
+	case "gpt-oss-120b-medium":
+		return "ag-gpt-oss-120b-medium"
 	case "claude-opus-4-6-thinking":
 		return "gemini-claude-opus-4-6-thinking"
 	case "claude-sonnet-4-6":
 		return "gemini-claude-sonnet-4-6"
-	case "chat_20706", "chat_23310", "gemini-2.5-flash-thinking", "gemini-3-pro-low", "gemini-2.5-pro":
+	case "chat_20706", "chat_23310", "gemini-2.5-flash-thinking", "gemini-3-pro-low", "gemini-3.1-pro-low", "gemini-2.5-pro":
 		return ""
 	default:
 		return modelName
@@ -1804,12 +1800,8 @@ func alias2ModelName(modelName string) string {
 		return "gemini-3.1-pro-high"
 	case "gemini-3-flash-preview":
 		return "gemini-3-flash"
-	case "gemini-claude-sonnet-4-5":
-		return "claude-sonnet-4-5"
-	case "gemini-claude-sonnet-4-5-thinking":
-		return "claude-sonnet-4-5-thinking"
-	case "gemini-claude-opus-4-5-thinking":
-		return "claude-opus-4-5-thinking"
+	case "ag-gpt-oss-120b-medium":
+		return "gpt-oss-120b-medium"
 	case "gemini-claude-opus-4-6-thinking":
 		return "claude-opus-4-6-thinking"
 	case "gemini-claude-sonnet-4-6":
