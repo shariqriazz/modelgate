@@ -1771,8 +1771,6 @@ func modelName2Alias(modelName string) string {
 	switch modelName {
 	case "rev19-uic3-1p":
 		return "gemini-2.5-computer-use-preview-10-2025"
-	case "gemini-3-pro-image":
-		return "gemini-3-pro-image-preview"
 	case "gemini-3-pro-high":
 		return "gemini-3-pro-preview"
 	case "gemini-3.1-pro-high":
@@ -1800,8 +1798,6 @@ func alias2ModelName(modelName string) string {
 	switch modelName {
 	case "gemini-2.5-computer-use-preview-10-2025":
 		return "rev19-uic3-1p"
-	case "gemini-3-pro-image-preview":
-		return "gemini-3-pro-image"
 	case "gemini-3-pro-preview":
 		return "gemini-3-pro-high"
 	case "gemini-3.1-pro-preview":
