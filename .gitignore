@@ -49,3 +49,4 @@ _bmad-output/*
 ._*
 antigravity-*.json
 github-copilot-*.json
+copilot_models_raw.json
