@@ -233,7 +233,8 @@ func ConvertClaudeRequestToCodex(modelName string, inputRawJSON []byte, _ bool) 
 		}
 	}
 	template, _ = sjson.Set(template, "reasoning.effort", reasoningEffort)
-	template, _ = sjson.Set(template, "reasoning.summary", "auto")
+	template, _ = sjson.Set(template, "reasoning.summary", "detailed")
+	template, _ = sjson.Set(template, "text.verbosity", "high")
 	template, _ = sjson.Set(template, "stream", true)
 	template, _ = sjson.Set(template, "store", false)
 	template, _ = sjson.Set(template, "include", []string{"reasoning.encrypted_content"})

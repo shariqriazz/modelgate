@@ -7,7 +7,6 @@
 package chat_completions
 
 import (
-
 	"strconv"
 	"strings"
 
@@ -61,7 +60,8 @@ func ConvertOpenAIRequestToCodex(modelName string, inputRawJSON []byte, stream b
 		out, _ = sjson.Set(out, "reasoning.effort", "medium")
 	}
 	out, _ = sjson.Set(out, "parallel_tool_calls", true)
-	out, _ = sjson.Set(out, "reasoning.summary", "auto")
+	out, _ = sjson.Set(out, "reasoning.summary", "detailed")
+	out, _ = sjson.Set(out, "text.verbosity", "high")
 	out, _ = sjson.Set(out, "include", []string{"reasoning.encrypted_content"})
 
 	// Model
