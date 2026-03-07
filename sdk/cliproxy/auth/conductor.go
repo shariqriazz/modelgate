@@ -1304,6 +1304,9 @@ func (m *Manager) pickNext(ctx context.Context, provider, model string, opts cli
 	}
 	candidates := make([]*Auth, 0, len(m.auths))
 	modelKey := strings.TrimSpace(model)
+	if base, _ := util.NormalizeThinkingModel(modelKey); base != "" {
+		modelKey = base
+	}
 	registryRef := registry.GetGlobalRegistry()
 	for _, candidate := range m.auths {
 		if candidate.Provider != provider || candidate.Disabled {
@@ -1359,6 +1362,9 @@ func (m *Manager) pickNextMixed(ctx context.Context, providers []string, model s
 	m.mu.RLock()
 	candidates := make([]*Auth, 0, len(m.auths))
 	modelKey := strings.TrimSpace(model)
+	if base, _ := util.NormalizeThinkingModel(modelKey); base != "" {
+		modelKey = base
+	}
 	registryRef := registry.GetGlobalRegistry()
 	for _, candidate := range m.auths {
 		if candidate == nil || candidate.Disabled {
