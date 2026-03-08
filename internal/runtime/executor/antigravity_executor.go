@@ -1769,8 +1769,6 @@ func generateProjectID() string {
 
 func modelName2Alias(modelName string) string {
 	switch modelName {
-	case "rev19-uic3-1p":
-		return "gemini-2.5-computer-use-preview-10-2025"
 	case "gemini-3-pro-high":
 		return "gemini-3-pro-preview"
 	case "gemini-3.1-pro-high":
@@ -1783,7 +1781,7 @@ func modelName2Alias(modelName string) string {
 		return "gemini-claude-opus-4-6-thinking"
 	case "claude-sonnet-4-6":
 		return "gemini-claude-sonnet-4-6"
-	case "chat_20706", "chat_23310", "gemini-2.5-flash-thinking", "gemini-3-pro-low", "gemini-3.1-pro-low", "gemini-2.5-pro":
+	case "rev19-uic3-1p", "chat_20706", "chat_23310", "tab_flash_lite_preview", "tab_jump_flash_lite_preview":
 		return ""
 	default:
 		return modelName
@@ -1792,8 +1790,6 @@ func modelName2Alias(modelName string) string {
 
 func alias2ModelName(modelName string) string {
 	switch modelName {
-	case "gemini-2.5-computer-use-preview-10-2025":
-		return "rev19-uic3-1p"
 	case "gemini-3-pro-preview":
 		return "gemini-3-pro-high"
 	case "gemini-3.1-pro-preview":

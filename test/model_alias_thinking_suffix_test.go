@@ -23,9 +23,9 @@ func TestModelAliasThinkingSuffix(t *testing.T) {
 		isAlias       bool
 	}{
 		// === 1. Antigravity Provider ===
-		// 1.1 Budget-only models (Gemini 2.5)
-		{1, "antigravity_original_numeric", "antigravity", "gemini-2.5-computer-use-preview-10-2025(1000)", "numeric", "thinkingBudget", 1000, "gemini-2.5-computer-use-preview-10-2025", false},
-		{2, "antigravity_alias_numeric", "antigravity", "gp(1000)", "numeric", "thinkingBudget", 1000, "gemini-2.5-computer-use-preview-10-2025", true},
+		// 1.1 Budget-only models (Gemini 2.5 Pro)
+		{1, "antigravity_original_numeric", "antigravity", "gemini-2.5-pro(1000)", "numeric", "thinkingBudget", 1000, "gemini-2.5-pro", false},
+		{2, "antigravity_alias_numeric", "antigravity", "gp(1000)", "numeric", "thinkingBudget", 1000, "gemini-2.5-pro", true},
 		// 1.2 Budget+Levels models (Gemini 3)
 		{3, "antigravity_original_numeric_to_level", "antigravity", "gemini-3-flash-preview(1000)", "numeric", "thinkingLevel", "low", "gemini-3-flash-preview", false},
 		{4, "antigravity_original_level", "antigravity", "gemini-3-flash-preview(low)", "level", "thinkingLevel", "low", "gemini-3-flash-preview", false},

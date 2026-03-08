@@ -1008,16 +1008,16 @@ type AntigravityModelConfig struct {
 // Keys use the ALIASED model names (after modelName2Alias conversion) for direct lookup.
 func GetAntigravityModelConfig() map[string]*AntigravityModelConfig {
 	return map[string]*AntigravityModelConfig{
-		"gemini-2.5-flash":                        {Thinking: &ThinkingSupport{Min: 0, Max: 24576, ZeroAllowed: true, DynamicAllowed: true}, Name: "models/gemini-2.5-flash"},
-		"gemini-2.5-flash-lite":                   {Thinking: &ThinkingSupport{Min: 0, Max: 24576, ZeroAllowed: true, DynamicAllowed: true}, Name: "models/gemini-2.5-flash-lite"},
-		"gemini-2.5-computer-use-preview-10-2025": {Thinking: &ThinkingSupport{Min: 128, Max: 32768, ZeroAllowed: false, DynamicAllowed: true}, Name: "models/gemini-2.5-computer-use-preview-10-2025"},
-		"gemini-3-pro-preview":                    {Thinking: &ThinkingSupport{Min: 128, Max: 32768, ZeroAllowed: false, DynamicAllowed: true, Levels: []string{"low", "high"}}, Name: "models/gemini-3-pro-preview"},
-		"gemini-3.1-pro-preview":                  {Thinking: &ThinkingSupport{Min: 128, Max: 10001, ZeroAllowed: false, DynamicAllowed: true, Levels: []string{"low", "high"}}, Name: "models/gemini-3.1-pro-preview"},
-		"gemini-3.1-flash-image":                  {Name: "models/gemini-3.1-flash-image"},
-		"gemini-3-flash-preview":                  {Thinking: &ThinkingSupport{Min: 128, Max: 32768, ZeroAllowed: false, DynamicAllowed: true, Levels: []string{"minimal", "low", "medium", "high"}}, Name: "models/gemini-3-flash-preview"},
-		"ag-gpt-oss-120b-medium":                  {Thinking: &ThinkingSupport{Min: 1, Max: 8192, ZeroAllowed: false, DynamicAllowed: true}, MaxCompletionTokens: 32768, Name: "gpt-oss-120b-medium"},
-		"gemini-claude-opus-4-6-thinking":         {Thinking: &ThinkingSupport{Min: 1024, Max: 128000, ZeroAllowed: true, DynamicAllowed: true}, MaxCompletionTokens: 64000},
-		"gemini-claude-sonnet-4-6":                {Thinking: &ThinkingSupport{Min: 1024, Max: 128000, ZeroAllowed: true, DynamicAllowed: true}, MaxCompletionTokens: 128000},
+		"gemini-2.5-flash":                {Thinking: &ThinkingSupport{Min: 0, Max: 24576, ZeroAllowed: true, DynamicAllowed: true}, Name: "models/gemini-2.5-flash"},
+		"gemini-2.5-flash-lite":           {Thinking: &ThinkingSupport{Min: 0, Max: 24576, ZeroAllowed: true, DynamicAllowed: true}, Name: "models/gemini-2.5-flash-lite"},
+		"gemini-2.5-pro":                  {Thinking: &ThinkingSupport{Min: 128, Max: 32768, ZeroAllowed: false, DynamicAllowed: true}, Name: "models/gemini-2.5-pro"},
+		"gemini-3-pro-preview":            {Thinking: &ThinkingSupport{Min: 128, Max: 32768, ZeroAllowed: false, DynamicAllowed: true, Levels: []string{"low", "high"}}, Name: "models/gemini-3-pro-preview"},
+		"gemini-3.1-pro-preview":          {Thinking: &ThinkingSupport{Min: 128, Max: 10001, ZeroAllowed: false, DynamicAllowed: true, Levels: []string{"low", "high"}}, Name: "models/gemini-3.1-pro-preview"},
+		"gemini-3.1-flash-image":          {Name: "models/gemini-3.1-flash-image"},
+		"gemini-3-flash-preview":          {Thinking: &ThinkingSupport{Min: 128, Max: 32768, ZeroAllowed: false, DynamicAllowed: true, Levels: []string{"minimal", "low", "medium", "high"}}, Name: "models/gemini-3-flash-preview"},
+		"ag-gpt-oss-120b-medium":          {Thinking: &ThinkingSupport{Min: 1, Max: 8192, ZeroAllowed: false, DynamicAllowed: true}, MaxCompletionTokens: 32768, Name: "gpt-oss-120b-medium"},
+		"gemini-claude-opus-4-6-thinking": {Thinking: &ThinkingSupport{Min: 1024, Max: 128000, ZeroAllowed: true, DynamicAllowed: true}, MaxCompletionTokens: 64000},
+		"gemini-claude-sonnet-4-6":        {Thinking: &ThinkingSupport{Min: 1024, Max: 128000, ZeroAllowed: true, DynamicAllowed: true}, MaxCompletionTokens: 128000},
 	}
 }
 
