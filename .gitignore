@@ -2,7 +2,7 @@
 cli-proxy-api
 /cliproxy
 *.exe
-modelgate
+/modelgate
 # Configuration
 .env
 
