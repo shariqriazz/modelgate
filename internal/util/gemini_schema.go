@@ -12,6 +12,32 @@ import (
 
 var gjsonPathKeyReplacer = strings.NewReplacer(".", "\\.", "*", "\\*", "?", "\\?")
 
+// CleanJSONSchemaForGemini transforms a JSON schema to be compatible with Gemini tool calling.
+// It removes unsupported keywords and simplifies schemas, without adding empty-schema placeholders
+// and additionally strips nullable/title fields.
+func CleanJSONSchemaForGemini(jsonStr string) string {
+	jsonStr = convertRefsToHints(jsonStr)
+	jsonStr = convertConstToEnum(jsonStr)
+	jsonStr = addEnumHints(jsonStr)
+	jsonStr = addAdditionalPropertiesHints(jsonStr)
+	jsonStr = moveConstraintsToDescription(jsonStr)
+	jsonStr = mergeAllOf(jsonStr)
+	jsonStr = flattenAnyOfOneOf(jsonStr)
+	jsonStr = flattenTypeArrays(jsonStr)
+	jsonStr = removeUnsupportedKeywords(jsonStr)
+	// Gemini-specific: remove nullable/title
+	for _, keyword := range []string{"nullable", "title"} {
+		for _, p := range findPaths(jsonStr, keyword) {
+			if isPropertyDefinition(trimSuffix(p, "."+keyword)) {
+				continue
+			}
+			jsonStr, _ = sjson.Delete(jsonStr, p)
+		}
+	}
+	jsonStr = cleanupRequiredFields(jsonStr)
+	return jsonStr
+}
+
 // CleanJSONSchemaForAntigravity transforms a JSON schema to be compatible with Antigravity API.
 // It handles unsupported keywords, type flattening, and schema simplification while preserving
 // semantic information as description hints.
