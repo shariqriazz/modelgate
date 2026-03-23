@@ -51,7 +51,7 @@ type ToolCallAccumulator struct {
 //
 // Returns:
 //   - []string: A slice of strings, each containing an OpenAI-compatible JSON response
-func ConvertClaudeResponseToOpenAI(_ context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) []string {
+func ConvertClaudeResponseToOpenAI(_ context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) [][]byte {
 	var localParam any
 	if param == nil {
 		param = &localParam
@@ -65,7 +65,7 @@ func ConvertClaudeResponseToOpenAI(_ context.Context, modelName string, original
 	}
 
 	if !bytes.HasPrefix(rawJSON, dataTag) {
-		return []string{}
+		return [][]byte{}
 	}
 	rawJSON = bytes.TrimSpace(rawJSON[5:])
 
@@ -107,7 +107,7 @@ func ConvertClaudeResponseToOpenAI(_ context.Context, modelName string, original
 				(*param).(*ConvertAnthropicResponseToOpenAIParams).ToolCallsAccumulator = make(map[int]*ToolCallAccumulator)
 			}
 		}
-		return []string{template}
+		return [][]byte{[]byte(template)}
 
 	case "content_block_start":
 		// Start of a content block (text, tool use, or reasoning)
@@ -116,7 +116,7 @@ func ConvertClaudeResponseToOpenAI(_ context.Context, modelName string, original
 
 			if blockType == "thinking" {
 				(*param).(*ConvertAnthropicResponseToOpenAIParams).ThinkingActive = true
-				return []string{}
+				return [][]byte{}
 			}
 			if blockType == "tool_use" {
 				// Start of tool call - initialize accumulator to track arguments
@@ -134,10 +134,10 @@ func ConvertClaudeResponseToOpenAI(_ context.Context, modelName string, original
 				}
 
 				// Don't output anything yet - wait for complete tool call
-				return []string{}
+				return [][]byte{}
 			}
 		}
-		return []string{}
+		return [][]byte{}
 
 	case "content_block_delta":
 		// Handle content delta (text, tool use arguments, or reasoning content)
@@ -166,7 +166,7 @@ func ConvertClaudeResponseToOpenAI(_ context.Context, modelName string, original
 						if contentBlock.Get("type").String() == "thinking" {
 							(*param).(*ConvertAnthropicResponseToOpenAIParams).ThinkingActive = false
 							template, _ = sjson.Set(template, "choices.0.delta.reasoning_content", "\n\n")
-							return []string{template}
+							return [][]byte{[]byte(template)}
 						}
 					}
 					if (*param).(*ConvertAnthropicResponseToOpenAIParams).ToolCallsAccumulator != nil {
@@ -176,13 +176,13 @@ func ConvertClaudeResponseToOpenAI(_ context.Context, modelName string, original
 					}
 				}
 				// Don't output anything yet - wait for complete tool call
-				return []string{}
+				return [][]byte{}
 			}
 		}
 		if hasContent {
-			return []string{template}
+			return [][]byte{[]byte(template)}
 		} else {
-			return []string{}
+			return [][]byte{}
 		}
 
 	case "content_block_stop":
@@ -204,10 +204,10 @@ func ConvertClaudeResponseToOpenAI(_ context.Context, modelName string, original
 				// Clean up the accumulator for this index
 				delete((*param).(*ConvertAnthropicResponseToOpenAIParams).ToolCallsAccumulator, index)
 
-				return []string{template}
+				return [][]byte{[]byte(template)}
 			}
 		}
-		return []string{}
+		return [][]byte{}
 
 	case "message_delta":
 		// Handle message-level changes including stop reason and usage
@@ -229,15 +229,15 @@ func ConvertClaudeResponseToOpenAI(_ context.Context, modelName string, original
 			template, _ = sjson.Set(template, "usage.total_tokens", inputTokens+outputTokens)
 			template, _ = sjson.Set(template, "usage.prompt_tokens_details.cached_tokens", cacheReadInputTokens)
 		}
-		return []string{template}
+		return [][]byte{[]byte(template)}
 
 	case "message_stop":
 		// Final message event - no additional output needed
-		return []string{}
+		return [][]byte{}
 
 	case "ping":
 		// Ping events for keeping connection alive - no output needed
-		return []string{}
+		return [][]byte{}
 
 	case "error":
 		// Error event - format and return error response
@@ -245,13 +245,13 @@ func ConvertClaudeResponseToOpenAI(_ context.Context, modelName string, original
 			errorJSON := `{"error":{"message":"","type":""}}`
 			errorJSON, _ = sjson.Set(errorJSON, "error.message", errorData.Get("message").String())
 			errorJSON, _ = sjson.Set(errorJSON, "error.type", errorData.Get("type").String())
-			return []string{errorJSON}
+			return [][]byte{[]byte(errorJSON)}
 		}
-		return []string{}
+		return [][]byte{}
 
 	default:
 		// Unknown event type - ignore
-		return []string{}
+		return [][]byte{}
 	}
 }
 
@@ -284,7 +284,7 @@ func mapAnthropicStopReasonToOpenAI(anthropicReason string) string {
 //
 // Returns:
 //   - string: An OpenAI-compatible JSON response containing all message content and metadata
-func ConvertClaudeResponseToOpenAINonStream(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) string {
+func ConvertClaudeResponseToOpenAINonStream(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) []byte {
 	chunks := make([][]byte, 0)
 
 	lines := bytes.Split(rawJSON, []byte("\n"))
@@ -445,5 +445,5 @@ func ConvertClaudeResponseToOpenAINonStream(_ context.Context, _ string, origina
 		out, _ = sjson.Set(out, "choices.0.finish_reason", mapAnthropicStopReasonToOpenAI(stopReason))
 	}
 
-	return out
+	return []byte(out)
 }

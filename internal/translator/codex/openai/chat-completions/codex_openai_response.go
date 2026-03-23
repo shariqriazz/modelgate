@@ -40,7 +40,7 @@ type ConvertCliToOpenAIParams struct {
 //
 // Returns:
 //   - []string: A slice of strings, each containing an OpenAI-compatible JSON response
-func ConvertCodexResponseToOpenAI(_ context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) []string {
+func ConvertCodexResponseToOpenAI(_ context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) [][]byte {
 	if *param == nil {
 		*param = &ConvertCliToOpenAIParams{
 			Model:             modelName,
@@ -51,7 +51,7 @@ func ConvertCodexResponseToOpenAI(_ context.Context, modelName string, originalR
 	}
 
 	if !bytes.HasPrefix(rawJSON, dataTag) {
-		return []string{}
+		return [][]byte{}
 	}
 	rawJSON = bytes.TrimSpace(rawJSON[5:])
 
@@ -66,7 +66,7 @@ func ConvertCodexResponseToOpenAI(_ context.Context, modelName string, originalR
 		(*param).(*ConvertCliToOpenAIParams).ResponseID = rootResult.Get("response.id").String()
 		(*param).(*ConvertCliToOpenAIParams).CreatedAt = rootResult.Get("response.created_at").Int()
 		(*param).(*ConvertCliToOpenAIParams).Model = rootResult.Get("response.model").String()
-		return []string{}
+		return [][]byte{}
 	}
 
 	// Extract and set the model version.
@@ -123,7 +123,7 @@ func ConvertCodexResponseToOpenAI(_ context.Context, modelName string, originalR
 		itemResult := rootResult.Get("item")
 		if itemResult.Exists() {
 			if itemResult.Get("type").String() != "function_call" {
-				return []string{}
+				return [][]byte{}
 			}
 
 			// set the index
@@ -148,10 +148,10 @@ func ConvertCodexResponseToOpenAI(_ context.Context, modelName string, originalR
 		}
 
 	} else {
-		return []string{}
+		return [][]byte{}
 	}
 
-	return []string{template}
+	return [][]byte{[]byte(template)}
 }
 
 // ConvertCodexResponseToOpenAINonStream converts a non-streaming Codex response to a non-streaming OpenAI response.
@@ -167,7 +167,7 @@ func ConvertCodexResponseToOpenAI(_ context.Context, modelName string, originalR
 //
 // Returns:
 //   - string: An OpenAI-compatible JSON response containing all message content and metadata
-func ConvertCodexResponseToOpenAINonStream(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) string {
+func ConvertCodexResponseToOpenAINonStream(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) []byte {
 	rootResult := gjson.ParseBytes(rawJSON)
 
 	// Determine the response object - handle both formats:
@@ -182,7 +182,7 @@ func ConvertCodexResponseToOpenAINonStream(_ context.Context, _ string, original
 		responseResult = rootResult
 	} else {
 		// Unknown format
-		return ""
+		return nil
 	}
 
 	unixTimestamp := time.Now().Unix()
@@ -314,7 +314,7 @@ func ConvertCodexResponseToOpenAINonStream(_ context.Context, _ string, original
 		}
 	}
 
-	return template
+	return []byte(template)
 }
 
 // buildReverseMapFromOriginalOpenAI builds a map of shortened tool name -> original tool name

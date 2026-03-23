@@ -10,6 +10,7 @@ import (
 
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	common "github.com/shariqriazz/modelgate/internal/translator/common"
 )
 
 type geminiToResponsesState struct {
@@ -50,7 +51,7 @@ func emitEvent(event string, payload string) string {
 }
 
 // ConvertGeminiResponseToOpenAIResponses converts Gemini SSE chunks into OpenAI Responses SSE events.
-func ConvertGeminiResponseToOpenAIResponses(_ context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) []string {
+func ConvertGeminiResponseToOpenAIResponses(_ context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) [][]byte {
 	if *param == nil {
 		*param = &geminiToResponsesState{
 			FuncArgsBuf: make(map[int]*strings.Builder),
@@ -66,7 +67,7 @@ func ConvertGeminiResponseToOpenAIResponses(_ context.Context, modelName string,
 
 	root := gjson.ParseBytes(rawJSON)
 	if !root.Exists() {
-		return []string{}
+		return [][]byte{}
 	}
 
 	var out []string
@@ -454,11 +455,11 @@ func ConvertGeminiResponseToOpenAIResponses(_ context.Context, modelName string,
 		out = append(out, emitEvent("response.completed", completed))
 	}
 
-	return out
+	return common.StringsToBytes(out)
 }
 
 // ConvertGeminiResponseToOpenAIResponsesNonStream aggregates Gemini response JSON into a single OpenAI Responses JSON object.
-func ConvertGeminiResponseToOpenAIResponsesNonStream(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) string {
+func ConvertGeminiResponseToOpenAIResponsesNonStream(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) []byte {
 	root := gjson.ParseBytes(rawJSON)
 
 	// Base response scaffold
@@ -650,5 +651,5 @@ func ConvertGeminiResponseToOpenAIResponsesNonStream(_ context.Context, _ string
 		}
 	}
 
-	return resp
+	return []byte(resp)
 }

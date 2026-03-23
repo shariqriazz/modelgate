@@ -14,6 +14,7 @@ import (
 
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	common "github.com/shariqriazz/modelgate/internal/translator/common"
 )
 
 // ConvertOpenAIResponseToGeminiParams holds parameters for response conversion
@@ -45,7 +46,7 @@ type ToolCallAccumulator struct {
 //
 // Returns:
 //   - []string: A slice of strings, each containing a Gemini-compatible JSON response.
-func ConvertOpenAIResponseToGemini(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) []string {
+func ConvertOpenAIResponseToGemini(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) [][]byte {
 	if *param == nil {
 		*param = &ConvertOpenAIResponseToGeminiParams{
 			ToolCallsAccumulator: nil,
@@ -56,7 +57,7 @@ func ConvertOpenAIResponseToGemini(_ context.Context, _ string, originalRequestR
 
 	// Handle [DONE] marker
 	if strings.TrimSpace(string(rawJSON)) == "[DONE]" {
-		return []string{}
+		return [][]byte{}
 	}
 
 	if bytes.HasPrefix(rawJSON, []byte("data:")) {
@@ -89,9 +90,9 @@ func ConvertOpenAIResponseToGemini(_ context.Context, _ string, originalRequestR
 				if reasoningTokens := reasoningTokensFromUsage(usage); reasoningTokens > 0 {
 					template, _ = sjson.Set(template, "usageMetadata.thoughtsTokenCount", reasoningTokens)
 				}
-				return []string{template}
+				return [][]byte{[]byte(template)}
 			}
-			return []string{}
+			return [][]byte{}
 		}
 
 		var results []string
@@ -125,7 +126,7 @@ func ConvertOpenAIResponseToGemini(_ context.Context, _ string, originalRequestR
 			// Handle reasoning/thinking delta
 			if reasoning := delta.Get("reasoning_content"); reasoning.Exists() {
 				for _, reasoningText := range extractReasoningTexts(reasoning) {
-					if reasoningText == "" {
+					if len(reasoningText) == 0 {
 						continue
 					}
 					reasoningTemplate := baseTemplate
@@ -242,9 +243,9 @@ func ConvertOpenAIResponseToGemini(_ context.Context, _ string, originalRequestR
 
 			return true
 		})
-		return results
+		return common.StringsToBytes(results)
 	}
-	return []string{}
+	return [][]byte{}
 }
 
 // mapOpenAIFinishReasonToGemini maps OpenAI finish reasons to Gemini finish reasons
@@ -532,7 +533,7 @@ func tryParseNumber(s string) (interface{}, bool) {
 //
 // Returns:
 //   - string: A Gemini-compatible JSON response.
-func ConvertOpenAIResponseToGeminiNonStream(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) string {
+func ConvertOpenAIResponseToGeminiNonStream(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) []byte {
 	root := gjson.ParseBytes(rawJSON)
 
 	// Base Gemini response template without finishReason; set when known
@@ -561,7 +562,7 @@ func ConvertOpenAIResponseToGeminiNonStream(_ context.Context, _ string, origina
 			// Handle reasoning content before visible text
 			if reasoning := message.Get("reasoning_content"); reasoning.Exists() {
 				for _, reasoningText := range extractReasoningTexts(reasoning) {
-					if reasoningText == "" {
+					if len(reasoningText) == 0 {
 						continue
 					}
 					out, _ = sjson.Set(out, fmt.Sprintf("candidates.0.content.parts.%d.thought", partIndex), true)
@@ -617,11 +618,11 @@ func ConvertOpenAIResponseToGeminiNonStream(_ context.Context, _ string, origina
 		}
 	}
 
-	return out
+	return []byte(out)
 }
 
-func GeminiTokenCount(ctx context.Context, count int64) string {
-	return fmt.Sprintf(`{"totalTokens":%d,"promptTokensDetails":[{"modality":"TEXT","tokenCount":%d}]}`, count, count)
+func GeminiTokenCount(ctx context.Context, count int64) []byte {
+	return []byte(fmt.Sprintf(`{"totalTokens":%d,"promptTokensDetails":[{"modality":"TEXT","tokenCount":%d}]}`, count, count))
 }
 
 func reasoningTokensFromUsage(usage gjson.Result) int64 {
@@ -636,8 +637,8 @@ func reasoningTokensFromUsage(usage gjson.Result) int64 {
 	return 0
 }
 
-func extractReasoningTexts(node gjson.Result) []string {
-	var texts []string
+func extractReasoningTexts(node gjson.Result) [][]byte {
+	var texts [][]byte
 	if !node.Exists() {
 		return texts
 	}
@@ -652,12 +653,12 @@ func extractReasoningTexts(node gjson.Result) []string {
 
 	switch node.Type {
 	case gjson.String:
-		texts = append(texts, node.String())
+		texts = append(texts, []byte(node.String()))
 	case gjson.JSON:
 		if text := node.Get("text"); text.Exists() {
-			texts = append(texts, text.String())
+			texts = append(texts, []byte(text.String()))
 		} else if raw := strings.TrimSpace(node.Raw); raw != "" && !strings.HasPrefix(raw, "{") && !strings.HasPrefix(raw, "[") {
-			texts = append(texts, raw)
+			texts = append(texts, []byte(raw))
 		}
 	}
 

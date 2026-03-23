@@ -14,6 +14,7 @@ import (
 	"github.com/shariqriazz/modelgate/internal/util"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	common "github.com/shariqriazz/modelgate/internal/translator/common"
 )
 
 var (
@@ -72,7 +73,7 @@ type ToolCallAccumulator struct {
 //
 // Returns:
 //   - []string: A slice of strings, each containing an Anthropic-compatible JSON response.
-func ConvertOpenAIResponseToClaude(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) []string {
+func ConvertOpenAIResponseToClaude(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) [][]byte {
 	if *param == nil {
 		*param = &ConvertOpenAIResponseToAnthropicParams{
 			MessageID:                   "",
@@ -93,7 +94,7 @@ func ConvertOpenAIResponseToClaude(_ context.Context, _ string, originalRequestR
 	}
 
 	if !bytes.HasPrefix(rawJSON, dataTag) {
-		return []string{}
+		return [][]byte{}
 	}
 	rawJSON = bytes.TrimSpace(rawJSON[5:])
 
@@ -112,7 +113,7 @@ func ConvertOpenAIResponseToClaude(_ context.Context, _ string, originalRequestR
 }
 
 // convertOpenAIStreamingChunkToAnthropic converts OpenAI streaming chunk to Anthropic streaming events
-func convertOpenAIStreamingChunkToAnthropic(rawJSON []byte, param *ConvertOpenAIResponseToAnthropicParams) []string {
+func convertOpenAIStreamingChunkToAnthropic(rawJSON []byte, param *ConvertOpenAIResponseToAnthropicParams) [][]byte {
 	root := gjson.ParseBytes(rawJSON)
 	var results []string
 
@@ -144,7 +145,7 @@ func convertOpenAIStreamingChunkToAnthropic(rawJSON []byte, param *ConvertOpenAI
 		// Handle reasoning content delta
 		if reasoning := delta.Get("reasoning_content"); reasoning.Exists() {
 			for _, reasoningText := range collectOpenAIReasoningTexts(reasoning) {
-				if reasoningText == "" {
+				if len(reasoningText) == 0 {
 					continue
 				}
 				stopTextContentBlock(param, &results)
@@ -311,11 +312,11 @@ func convertOpenAIStreamingChunkToAnthropic(rawJSON []byte, param *ConvertOpenAI
 		}
 	}
 
-	return results
+	return common.StringsToBytes(results)
 }
 
 // convertOpenAIDoneToAnthropic handles the [DONE] marker and sends final events
-func convertOpenAIDoneToAnthropic(param *ConvertOpenAIResponseToAnthropicParams) []string {
+func convertOpenAIDoneToAnthropic(param *ConvertOpenAIResponseToAnthropicParams) [][]byte {
 	var results []string
 
 	// Ensure all content blocks are stopped before final events
@@ -359,11 +360,11 @@ func convertOpenAIDoneToAnthropic(param *ConvertOpenAIResponseToAnthropicParams)
 
 	emitMessageStopIfNeeded(param, &results)
 
-	return results
+	return common.StringsToBytes(results)
 }
 
 // convertOpenAINonStreamingToAnthropic converts OpenAI non-streaming response to Anthropic format
-func convertOpenAINonStreamingToAnthropic(rawJSON []byte) []string {
+func convertOpenAINonStreamingToAnthropic(rawJSON []byte) [][]byte {
 	root := gjson.ParseBytes(rawJSON)
 
 	out := `{"id":"","type":"message","role":"assistant","model":"","content":[],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":0,"output_tokens":0}}`
@@ -376,7 +377,7 @@ func convertOpenAINonStreamingToAnthropic(rawJSON []byte) []string {
 
 		reasoningNode := choice.Get("message.reasoning_content")
 		for _, reasoningText := range collectOpenAIReasoningTexts(reasoningNode) {
-			if reasoningText == "" {
+			if len(reasoningText) == 0 {
 				continue
 			}
 			block := `{"type":"thinking","thinking":""}`
@@ -432,7 +433,7 @@ func convertOpenAINonStreamingToAnthropic(rawJSON []byte) []string {
 		out, _ = sjson.Set(out, "usage.reasoning_tokens", reasoningTokens)
 	}
 
-	return []string{out}
+	return [][]byte{[]byte(out)}
 }
 
 // mapOpenAIFinishReasonToAnthropic maps OpenAI finish reasons to Anthropic equivalents
@@ -463,8 +464,8 @@ func (p *ConvertOpenAIResponseToAnthropicParams) toolContentBlockIndex(openAIToo
 	return idx
 }
 
-func collectOpenAIReasoningTexts(node gjson.Result) []string {
-	var texts []string
+func collectOpenAIReasoningTexts(node gjson.Result) [][]byte {
+	var texts [][]byte
 	if !node.Exists() {
 		return texts
 	}
@@ -480,15 +481,15 @@ func collectOpenAIReasoningTexts(node gjson.Result) []string {
 	switch node.Type {
 	case gjson.String:
 		if text := node.String(); text != "" {
-			texts = append(texts, text)
+			texts = append(texts, []byte(text))
 		}
 	case gjson.JSON:
 		if text := node.Get("text"); text.Exists() {
 			if textStr := text.String(); textStr != "" {
-				texts = append(texts, textStr)
+				texts = append(texts, []byte(textStr))
 			}
 		} else if raw := node.Raw; raw != "" && !strings.HasPrefix(raw, "{") && !strings.HasPrefix(raw, "[") {
-			texts = append(texts, raw)
+			texts = append(texts, []byte(raw))
 		}
 	}
 
@@ -535,7 +536,7 @@ func stopTextContentBlock(param *ConvertOpenAIResponseToAnthropicParams, results
 //
 // Returns:
 //   - string: An Anthropic-compatible JSON response.
-func ConvertOpenAIResponseToClaudeNonStream(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) string {
+func ConvertOpenAIResponseToClaudeNonStream(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) []byte {
 	_ = originalRequestRawJSON
 	_ = requestRawJSON
 
@@ -638,7 +639,7 @@ func ConvertOpenAIResponseToClaudeNonStream(_ context.Context, _ string, origina
 
 			if reasoning := message.Get("reasoning_content"); reasoning.Exists() {
 				for _, reasoningText := range collectOpenAIReasoningTexts(reasoning) {
-					if reasoningText == "" {
+					if len(reasoningText) == 0 {
 						continue
 					}
 					block := `{"type":"thinking","thinking":""}`
@@ -686,9 +687,9 @@ func ConvertOpenAIResponseToClaudeNonStream(_ context.Context, _ string, origina
 		}
 	}
 
-	return out
+	return []byte(out)
 }
 
-func ClaudeTokenCount(ctx context.Context, count int64) string {
-	return fmt.Sprintf(`{"input_tokens":%d}`, count)
+func ClaudeTokenCount(ctx context.Context, count int64) []byte {
+	return []byte(fmt.Sprintf(`{"input_tokens":%d}`, count))
 }

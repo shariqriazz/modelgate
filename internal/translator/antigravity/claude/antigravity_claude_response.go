@@ -67,7 +67,7 @@ var toolUseIDCounter uint64
 //
 // Returns:
 //   - []string: A slice of strings, each containing a Claude Code-compatible JSON response
-func ConvertAntigravityResponseToClaude(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) []string {
+func ConvertAntigravityResponseToClaude(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) [][]byte {
 	if *param == nil {
 		*param = &Params{
 			HasFirstResponse: false,
@@ -85,11 +85,11 @@ func ConvertAntigravityResponseToClaude(_ context.Context, _ string, originalReq
 		// Only send final events if we have actually output content
 		if params.HasContent {
 			appendFinalEvents(params, &output, true)
-			return []string{
+			return [][]byte{[]byte(
 				output + "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n\n",
-			}
+			)}
 		}
-		return []string{}
+		return [][]byte{}
 	}
 
 	output := ""
@@ -299,7 +299,7 @@ func ConvertAntigravityResponseToClaude(_ context.Context, _ string, originalReq
 		appendFinalEvents(params, &output, false)
 	}
 
-	return []string{output}
+	return [][]byte{[]byte(output)}
 }
 
 func appendFinalEvents(params *Params, output *string, force bool) {
@@ -373,7 +373,7 @@ func resolveStopReason(params *Params) string {
 //
 // Returns:
 //   - string: A Claude-compatible JSON response.
-func ConvertAntigravityResponseToClaudeNonStream(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) string {
+func ConvertAntigravityResponseToClaudeNonStream(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) []byte {
 	toolNameMap := util.SanitizedToolNameMap(originalRequestRawJSON)
 	modelName := gjson.GetBytes(requestRawJSON, "model").String()
 
@@ -519,9 +519,9 @@ func ConvertAntigravityResponseToClaudeNonStream(_ context.Context, _ string, or
 		}
 	}
 
-	return responseJSON
+	return []byte(responseJSON)
 }
 
-func ClaudeTokenCount(ctx context.Context, count int64) string {
-	return fmt.Sprintf(`{"input_tokens":%d}`, count)
+func ClaudeTokenCount(ctx context.Context, count int64) []byte {
+	return []byte(fmt.Sprintf(`{"input_tokens":%d}`, count))
 }

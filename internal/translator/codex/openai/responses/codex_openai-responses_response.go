@@ -12,7 +12,7 @@ import (
 // ConvertCodexResponseToOpenAIResponses converts OpenAI Chat Completions streaming chunks
 // to OpenAI Responses SSE events (response.*).
 
-func ConvertCodexResponseToOpenAIResponses(ctx context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) []string {
+func ConvertCodexResponseToOpenAIResponses(ctx context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) [][]byte {
 	if bytes.HasPrefix(rawJSON, []byte("data:")) {
 		rawJSON = bytes.TrimSpace(rawJSON[5:])
 		if typeResult := gjson.GetBytes(rawJSON, "type"); typeResult.Exists() {
@@ -25,18 +25,18 @@ func ConvertCodexResponseToOpenAIResponses(ctx context.Context, modelName string
 			}
 		}
 		out := fmt.Sprintf("data: %s", string(rawJSON))
-		return []string{out}
+		return [][]byte{[]byte(out)}
 	}
-	return []string{string(rawJSON)}
+	return [][]byte{rawJSON}
 }
 
 // ConvertCodexResponseToOpenAIResponsesNonStream builds a single Responses JSON
 // from a non-streaming OpenAI Chat Completions response.
-func ConvertCodexResponseToOpenAIResponsesNonStream(_ context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) string {
+func ConvertCodexResponseToOpenAIResponsesNonStream(_ context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) []byte {
 	rootResult := gjson.ParseBytes(rawJSON)
 	// Verify this is a response.completed event
 	if rootResult.Get("type").String() != "response.completed" {
-		return ""
+		return nil
 	}
 	responseResult := rootResult.Get("response")
 	template := responseResult.Raw
@@ -44,5 +44,5 @@ func ConvertCodexResponseToOpenAIResponsesNonStream(_ context.Context, modelName
 		instructions := gjson.GetBytes(originalRequestRawJSON, "instructions").String()
 		template, _ = sjson.Set(template, "instructions", instructions)
 	}
-	return template
+	return []byte(template)
 }

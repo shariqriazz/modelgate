@@ -15,6 +15,7 @@ import (
 
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	common "github.com/shariqriazz/modelgate/internal/translator/common"
 )
 
 var (
@@ -53,7 +54,7 @@ type ConvertAnthropicResponseToGeminiParams struct {
 //
 // Returns:
 //   - []string: A slice of strings, each containing a Gemini-compatible JSON response
-func ConvertClaudeResponseToGemini(_ context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) []string {
+func ConvertClaudeResponseToGemini(_ context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) [][]byte {
 	if *param == nil {
 		*param = &ConvertAnthropicResponseToGeminiParams{
 			Model:      modelName,
@@ -63,7 +64,7 @@ func ConvertClaudeResponseToGemini(_ context.Context, modelName string, original
 	}
 
 	if !bytes.HasPrefix(rawJSON, dataTag) {
-		return []string{}
+		return [][]byte{}
 	}
 	rawJSON = bytes.TrimSpace(rawJSON[5:])
 
@@ -97,7 +98,7 @@ func ConvertClaudeResponseToGemini(_ context.Context, modelName string, original
 			(*param).(*ConvertAnthropicResponseToGeminiParams).ResponseID = message.Get("id").String()
 			(*param).(*ConvertAnthropicResponseToGeminiParams).Model = message.Get("model").String()
 		}
-		return []string{}
+		return [][]byte{}
 
 	case "content_block_start":
 		// Start of a content block - record tool_use name by index for functionCall assembly
@@ -112,7 +113,7 @@ func ConvertClaudeResponseToGemini(_ context.Context, modelName string, original
 				}
 			}
 		}
-		return []string{}
+		return [][]byte{}
 
 	case "content_block_delta":
 		// Handle content delta (text, thinking, or tool use arguments)
@@ -149,10 +150,10 @@ func ConvertClaudeResponseToGemini(_ context.Context, modelName string, original
 				if pj := delta.Get("partial_json"); pj.Exists() {
 					b.WriteString(pj.String())
 				}
-				return []string{}
+				return [][]byte{}
 			}
 		}
-		return []string{template}
+		return [][]byte{[]byte(template)}
 
 	case "content_block_stop":
 		// End of content block - finalize tool calls if any
@@ -187,9 +188,9 @@ func ConvertClaudeResponseToGemini(_ context.Context, modelName string, original
 			if (*param).(*ConvertAnthropicResponseToGeminiParams).ToolUseNames != nil {
 				delete((*param).(*ConvertAnthropicResponseToGeminiParams).ToolUseNames, idx)
 			}
-			return []string{template}
+			return [][]byte{[]byte(template)}
 		}
-		return []string{}
+		return [][]byte{}
 
 	case "message_delta":
 		// Handle message-level changes (like stop reason and usage information)
@@ -241,10 +242,10 @@ func ConvertClaudeResponseToGemini(_ context.Context, modelName string, original
 		}
 		template, _ = sjson.Set(template, "candidates.0.finishReason", "STOP")
 
-		return []string{template}
+		return [][]byte{[]byte(template)}
 	case "message_stop":
 		// Final message with usage information - no additional output needed
-		return []string{}
+		return [][]byte{}
 	case "error":
 		// Handle error responses and convert to Gemini error format
 		errorMsg := root.Get("error.message").String()
@@ -255,11 +256,11 @@ func ConvertClaudeResponseToGemini(_ context.Context, modelName string, original
 		// Create error response in Gemini format
 		errorResponse := `{"error":{"code":400,"message":"","status":"INVALID_ARGUMENT"}}`
 		errorResponse, _ = sjson.Set(errorResponse, "error.message", errorMsg)
-		return []string{errorResponse}
+		return [][]byte{[]byte(errorResponse)}
 
 	default:
 		// Unknown event type, return empty response
-		return []string{}
+		return [][]byte{}
 	}
 }
 
@@ -276,7 +277,7 @@ func ConvertClaudeResponseToGemini(_ context.Context, modelName string, original
 //
 // Returns:
 //   - string: A Gemini-compatible JSON response containing all message content and metadata
-func ConvertClaudeResponseToGeminiNonStream(_ context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) string {
+func ConvertClaudeResponseToGeminiNonStream(_ context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) []byte {
 	// Base Gemini response template for non-streaming with default values
 	template := `{"candidates":[{"content":{"role":"model","parts":[]},"finishReason":"STOP"}],"usageMetadata":{"trafficType":"PROVISIONED_THROUGHPUT"},"modelVersion":"","createTime":"","responseId":""}`
 
@@ -472,7 +473,7 @@ func ConvertClaudeResponseToGeminiNonStream(_ context.Context, modelName string,
 	if len(consolidatedParts) > 0 {
 		partsJSON := "[]"
 		for _, partJSON := range consolidatedParts {
-			partsJSON, _ = sjson.SetRaw(partsJSON, "-1", partJSON)
+			partsJSON, _ = sjson.SetRaw(partsJSON, "-1", string(partJSON))
 		}
 		template, _ = sjson.SetRaw(template, "candidates.0.content.parts", partsJSON)
 	}
@@ -482,20 +483,20 @@ func ConvertClaudeResponseToGeminiNonStream(_ context.Context, modelName string,
 		template, _ = sjson.SetRaw(template, "usageMetadata", finalUsageJSON)
 	}
 
-	return template
+	return []byte(template)
 }
 
-func GeminiTokenCount(ctx context.Context, count int64) string {
-	return fmt.Sprintf(`{"totalTokens":%d,"promptTokensDetails":[{"modality":"TEXT","tokenCount":%d}]}`, count, count)
+func GeminiTokenCount(ctx context.Context, count int64) []byte {
+	return []byte(fmt.Sprintf(`{"totalTokens":%d,"promptTokensDetails":[{"modality":"TEXT","tokenCount":%d}]}`, count, count))
 }
 
 // consolidateParts merges consecutive text parts and thinking parts to create a cleaner response.
 // This function processes the parts array to combine adjacent text elements and thinking elements
 // into single consolidated parts, which results in a more readable and efficient response structure.
 // Tool calls and other non-text parts are preserved as separate elements.
-func consolidateParts(parts []string) []string {
+func consolidateParts(parts []string) [][]byte {
 	if len(parts) == 0 {
-		return parts
+		return common.StringsToBytes(parts)
 	}
 
 	var consolidated []string
@@ -562,5 +563,5 @@ func consolidateParts(parts []string) []string {
 	flushThought() // Flush thought first to maintain order
 	flushText()
 
-	return consolidated
+	return common.StringsToBytes(consolidated)
 }
