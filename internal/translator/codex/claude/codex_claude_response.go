@@ -42,7 +42,7 @@ type ConvertCodexResponseToClaudeParams struct {
 //
 // Returns:
 //   - []string: A slice of strings, each containing a Claude Code-compatible JSON response
-func ConvertCodexResponseToClaude(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) []string {
+func ConvertCodexResponseToClaude(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) [][]byte {
 	if *param == nil {
 		*param = &ConvertCodexResponseToClaudeParams{
 			HasToolCall: false,
@@ -52,7 +52,7 @@ func ConvertCodexResponseToClaude(_ context.Context, _ string, originalRequestRa
 
 	// log.Debugf("rawJSON: %s", string(rawJSON))
 	if !bytes.HasPrefix(rawJSON, dataTag) {
-		return []string{}
+		return [][]byte{}
 	}
 	rawJSON = bytes.TrimSpace(rawJSON[5:])
 
@@ -175,7 +175,7 @@ func ConvertCodexResponseToClaude(_ context.Context, _ string, originalRequestRa
 		output += fmt.Sprintf("data: %s\n\n", template)
 	}
 
-	return []string{output}
+	return [][]byte{[]byte(output)}
 }
 
 // ConvertCodexResponseToClaudeNonStream converts a non-streaming Codex response to a non-streaming Claude Code response.
@@ -191,17 +191,17 @@ func ConvertCodexResponseToClaude(_ context.Context, _ string, originalRequestRa
 //
 // Returns:
 //   - string: A Claude Code-compatible JSON response containing all message content and metadata
-func ConvertCodexResponseToClaudeNonStream(_ context.Context, _ string, originalRequestRawJSON, _ []byte, rawJSON []byte, _ *any) string {
+func ConvertCodexResponseToClaudeNonStream(_ context.Context, _ string, originalRequestRawJSON, _ []byte, rawJSON []byte, _ *any) []byte {
 	revNames := buildReverseMapFromClaudeOriginalShortToOriginal(originalRequestRawJSON)
 
 	rootResult := gjson.ParseBytes(rawJSON)
 	if rootResult.Get("type").String() != "response.completed" {
-		return ""
+		return nil
 	}
 
 	responseData := rootResult.Get("response")
 	if !responseData.Exists() {
-		return ""
+		return nil
 	}
 
 	out := `{"id":"","type":"message","role":"assistant","model":"","content":[],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":0,"output_tokens":0}}`
@@ -316,7 +316,7 @@ func ConvertCodexResponseToClaudeNonStream(_ context.Context, _ string, original
 		out, _ = sjson.Set(out, "usage.output_tokens", responseData.Get("usage.output_tokens").Int())
 	}
 
-	return out
+	return []byte(out)
 }
 
 // buildReverseMapFromClaudeOriginalShortToOriginal builds a map[short]original from original Claude request tools.
@@ -343,6 +343,6 @@ func buildReverseMapFromClaudeOriginalShortToOriginal(original []byte) map[strin
 	return rev
 }
 
-func ClaudeTokenCount(ctx context.Context, count int64) string {
-	return fmt.Sprintf(`{"input_tokens":%d}`, count)
+func ClaudeTokenCount(ctx context.Context, count int64) []byte {
+	return []byte(fmt.Sprintf(`{"input_tokens":%d}`, count))
 }

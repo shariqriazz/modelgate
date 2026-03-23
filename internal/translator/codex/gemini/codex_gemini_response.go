@@ -39,7 +39,7 @@ type ConvertCodexResponseToGeminiParams struct {
 //
 // Returns:
 //   - []string: A slice of strings, each containing a Gemini-compatible JSON response
-func ConvertCodexResponseToGemini(_ context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) []string {
+func ConvertCodexResponseToGemini(_ context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) [][]byte {
 	if *param == nil {
 		*param = &ConvertCodexResponseToGeminiParams{
 			Model:             modelName,
@@ -50,7 +50,7 @@ func ConvertCodexResponseToGemini(_ context.Context, modelName string, originalR
 	}
 
 	if !bytes.HasPrefix(rawJSON, dataTag) {
-		return []string{}
+		return [][]byte{}
 	}
 	rawJSON = bytes.TrimSpace(rawJSON[5:])
 
@@ -104,7 +104,7 @@ func ConvertCodexResponseToGemini(_ context.Context, modelName string, originalR
 			(*param).(*ConvertCodexResponseToGeminiParams).LastStorageOutput = template
 
 			// Use this return to storage message
-			return []string{}
+			return [][]byte{}
 		}
 	}
 
@@ -126,13 +126,13 @@ func ConvertCodexResponseToGemini(_ context.Context, modelName string, originalR
 		totalTokens := rootResult.Get("response.usage.input_tokens").Int() + rootResult.Get("response.usage.output_tokens").Int()
 		template, _ = sjson.Set(template, "usageMetadata.totalTokenCount", totalTokens)
 	} else {
-		return []string{}
+		return [][]byte{}
 	}
 
 	if (*param).(*ConvertCodexResponseToGeminiParams).LastStorageOutput != "" {
-		return []string{(*param).(*ConvertCodexResponseToGeminiParams).LastStorageOutput, template}
+		return [][]byte{[]byte((*param).(*ConvertCodexResponseToGeminiParams).LastStorageOutput), []byte(template)}
 	} else {
-		return []string{template}
+		return [][]byte{[]byte(template)}
 	}
 
 }
@@ -150,12 +150,12 @@ func ConvertCodexResponseToGemini(_ context.Context, modelName string, originalR
 //
 // Returns:
 //   - string: A Gemini-compatible JSON response containing all message content and metadata
-func ConvertCodexResponseToGeminiNonStream(_ context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) string {
+func ConvertCodexResponseToGeminiNonStream(_ context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) []byte {
 	rootResult := gjson.ParseBytes(rawJSON)
 
 	// Verify this is a response.completed event
 	if rootResult.Get("type").String() != "response.completed" {
-		return ""
+		return nil
 	}
 
 	// Base Gemini response template for non-streaming
@@ -275,7 +275,7 @@ func ConvertCodexResponseToGeminiNonStream(_ context.Context, modelName string, 
 			template, _ = sjson.Set(template, "candidates.0.finishReason", "STOP")
 		}
 	}
-	return template
+	return []byte(template)
 }
 
 // buildReverseMapFromGeminiOriginal builds a map[short]original from original Gemini request tools.
@@ -307,6 +307,6 @@ func buildReverseMapFromGeminiOriginal(original []byte) map[string]string {
 	return rev
 }
 
-func GeminiTokenCount(ctx context.Context, count int64) string {
-	return fmt.Sprintf(`{"totalTokens":%d,"promptTokensDetails":[{"modality":"TEXT","tokenCount":%d}]}`, count, count)
+func GeminiTokenCount(ctx context.Context, count int64) []byte {
+	return []byte(fmt.Sprintf(`{"totalTokens":%d,"promptTokensDetails":[{"modality":"TEXT","tokenCount":%d}]}`, count, count))
 }

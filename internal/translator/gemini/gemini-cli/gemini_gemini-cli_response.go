@@ -27,18 +27,18 @@ var dataTag = []byte("data:")
 //
 // Returns:
 //   - []string: A slice of strings, each containing a Gemini CLI-compatible JSON response.
-func ConvertGeminiResponseToGeminiCLI(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) []string {
+func ConvertGeminiResponseToGeminiCLI(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) [][]byte {
 	if !bytes.HasPrefix(rawJSON, dataTag) {
-		return []string{}
+		return [][]byte{}
 	}
 	rawJSON = bytes.TrimSpace(rawJSON[5:])
 
 	if bytes.Equal(rawJSON, []byte("[DONE]")) {
-		return []string{}
+		return [][]byte{}
 	}
 	json := `{"response": {}}`
 	rawJSON, _ = sjson.SetRawBytes([]byte(json), "response", rawJSON)
-	return []string{string(rawJSON)}
+	return [][]byte{rawJSON}
 }
 
 // ConvertGeminiResponseToGeminiCLINonStream converts a non-streaming Gemini response to a non-streaming Gemini CLI response.
@@ -51,12 +51,12 @@ func ConvertGeminiResponseToGeminiCLI(_ context.Context, _ string, originalReque
 //
 // Returns:
 //   - string: A Gemini CLI-compatible JSON response.
-func ConvertGeminiResponseToGeminiCLINonStream(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) string {
+func ConvertGeminiResponseToGeminiCLINonStream(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) []byte {
 	json := `{"response": {}}`
 	rawJSON, _ = sjson.SetRawBytes([]byte(json), "response", rawJSON)
-	return string(rawJSON)
+	return rawJSON
 }
 
-func GeminiCLITokenCount(ctx context.Context, count int64) string {
-	return fmt.Sprintf(`{"totalTokens":%d,"promptTokensDetails":[{"modality":"TEXT","tokenCount":%d}]}`, count, count)
+func GeminiCLITokenCount(ctx context.Context, count int64) []byte {
+	return []byte(fmt.Sprintf(`{"totalTokens":%d,"promptTokensDetails":[{"modality":"TEXT","tokenCount":%d}]}`, count, count))
 }

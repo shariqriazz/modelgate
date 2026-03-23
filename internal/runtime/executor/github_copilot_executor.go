@@ -387,11 +387,11 @@ func (e *GitHubCopilotExecutor) ExecuteStream(ctx context.Context, auth *modelga
 			// preserve SSE framing for the handler.
 			if ssePassthrough {
 				for i := range chunks {
-					chunks[i] = chunks[i] + "\n"
+					chunks[i] = append(chunks[i], '\n')
 				}
 			}
 			for i := range chunks {
-				out <- modelgateexecutor.StreamChunk{Payload: []byte(chunks[i])}
+				out <- modelgateexecutor.StreamChunk{Payload: chunks[i]}
 			}
 		}
 

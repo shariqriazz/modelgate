@@ -120,23 +120,43 @@ func TestClearSignatureCache_AllSessions(t *testing.T) {
 func TestHasValidSignature(t *testing.T) {
 	tests := []struct {
 		name      string
+		modelName string
 		signature string
 		expected  bool
 	}{
-		{"valid long signature", "abc123validSignature1234567890123456789012345678901234567890", true},
-		{"exactly 50 chars", "12345678901234567890123456789012345678901234567890", true},
-		{"49 chars - invalid", "1234567890123456789012345678901234567890123456789", false},
-		{"empty string", "", false},
-		{"short signature", "abc", false},
+		{"valid long signature", "claude-sonnet-4-6", "abc123validSignature1234567890123456789012345678901234567890", true},
+		{"exactly 50 chars", "claude-sonnet-4-6", "12345678901234567890123456789012345678901234567890", true},
+		{"49 chars - invalid", "claude-sonnet-4-6", "1234567890123456789012345678901234567890123456789", false},
+		{"empty string", "claude-sonnet-4-6", "", false},
+		{"short signature", "claude-sonnet-4-6", "abc", false},
+		{"skip sentinel for gemini", "gemini-2.5-pro", "skip_thought_signature_validator", true},
+		{"skip sentinel for claude - invalid", "claude-sonnet-4-6", "skip_thought_signature_validator", false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := HasValidSignature(tt.signature)
+			result := HasValidSignature(tt.modelName, tt.signature)
 			if result != tt.expected {
-				t.Errorf("HasValidSignature(%q) = %v, expected %v", tt.signature, result, tt.expected)
+				t.Errorf("HasValidSignature(%q, %q) = %v, expected %v", tt.modelName, tt.signature, result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestGetModelGroup(t *testing.T) {
+	tests := []struct {
+		model    string
+		expected string
+	}{
+		{"claude-sonnet-4-6", "claude"},
+		{"gemini-2.5-pro", "gemini"},
+		{"gpt-4o", "gpt"},
+		{"custom-model", "custom-model"},
+	}
+	for _, tt := range tests {
+		if got := GetModelGroup(tt.model); got != tt.expected {
+			t.Errorf("GetModelGroup(%q) = %q, want %q", tt.model, got, tt.expected)
+		}
 	}
 }
 

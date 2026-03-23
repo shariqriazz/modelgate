@@ -3,6 +3,7 @@ package cache
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"strings"
 	"sync"
 	"time"
 )
@@ -163,7 +164,21 @@ func ClearSignatureCache(sessionID string) {
 	}
 }
 
-// HasValidSignature checks if a signature is valid (non-empty and long enough)
-func HasValidSignature(signature string) bool {
-	return signature != "" && len(signature) >= MinValidSignatureLen
+// HasValidSignature checks if a signature is valid (non-empty and long enough).
+// For Gemini models, the skip_thought_signature_validator sentinel is also accepted.
+func HasValidSignature(modelName, signature string) bool {
+	return (signature != "" && len(signature) >= MinValidSignatureLen) || (signature == "skip_thought_signature_validator" && GetModelGroup(modelName) == "gemini")
+}
+
+// GetModelGroup returns the model family group for a given model name.
+// Used for grouping signature caches across model variants within the same family.
+func GetModelGroup(modelName string) string {
+	if strings.Contains(modelName, "gpt") {
+		return "gpt"
+	} else if strings.Contains(modelName, "claude") {
+		return "claude"
+	} else if strings.Contains(modelName, "gemini") {
+		return "gemini"
+	}
+	return modelName
 }

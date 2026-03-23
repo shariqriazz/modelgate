@@ -25,13 +25,13 @@ import (
 //
 // Returns:
 //   - []string: A slice of strings, each containing a Gemini-compatible JSON response.
-func ConvertOpenAIResponseToGeminiCLI(ctx context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) []string {
+func ConvertOpenAIResponseToGeminiCLI(ctx context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) [][]byte {
 	outputs := ConvertOpenAIResponseToGemini(ctx, modelName, originalRequestRawJSON, requestRawJSON, rawJSON, param)
-	newOutputs := make([]string, 0)
+	newOutputs := make([][]byte, 0, len(outputs))
 	for i := 0; i < len(outputs); i++ {
 		json := `{"response": {}}`
-		output, _ := sjson.SetRaw(json, "response", outputs[i])
-		newOutputs = append(newOutputs, output)
+		output, _ := sjson.SetRaw(json, "response", string(outputs[i]))
+		newOutputs = append(newOutputs, []byte(output))
 	}
 	return newOutputs
 }
@@ -46,13 +46,13 @@ func ConvertOpenAIResponseToGeminiCLI(ctx context.Context, modelName string, ori
 //
 // Returns:
 //   - string: A Gemini-compatible JSON response.
-func ConvertOpenAIResponseToGeminiCLINonStream(ctx context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) string {
+func ConvertOpenAIResponseToGeminiCLINonStream(ctx context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) []byte {
 	strJSON := ConvertOpenAIResponseToGeminiNonStream(ctx, modelName, originalRequestRawJSON, requestRawJSON, rawJSON, param)
 	json := `{"response": {}}`
-	strJSON, _ = sjson.SetRaw(json, "response", strJSON)
-	return strJSON
+	wrapped, _ := sjson.SetRaw(json, "response", string(strJSON))
+	return []byte(wrapped)
 }
 
-func GeminiCLITokenCount(ctx context.Context, count int64) string {
-	return fmt.Sprintf(`{"totalTokens":%d,"promptTokensDetails":[{"modality":"TEXT","tokenCount":%d}]}`, count, count)
+func GeminiCLITokenCount(ctx context.Context, count int64) []byte {
+	return []byte(fmt.Sprintf(`{"totalTokens":%d,"promptTokensDetails":[{"modality":"TEXT","tokenCount":%d}]}`, count, count))
 }

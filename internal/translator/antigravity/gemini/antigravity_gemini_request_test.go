@@ -62,8 +62,8 @@ func TestConvertGeminiRequestToAntigravity_AddSkipSentinelToFunctionCall(t *test
 	}
 }
 
-func TestConvertGeminiRequestToAntigravity_RemoveThinkingBlocks(t *testing.T) {
-	// Thinking blocks should be removed entirely for Gemini
+func TestConvertGeminiRequestToAntigravity_KeepThinkingBlocksWithSkipSentinel(t *testing.T) {
+	// For non-Claude Gemini models, thinking blocks should be kept but annotated with skip sentinel
 	validSignature := "abc123validSignature1234567890123456789012345678901234567890"
 	inputJSON := []byte(fmt.Sprintf(`{
 		"model": "gemini-3-pro-preview",
@@ -81,18 +81,17 @@ func TestConvertGeminiRequestToAntigravity_RemoveThinkingBlocks(t *testing.T) {
 	output := ConvertGeminiRequestToAntigravity("gemini-3-pro-preview", inputJSON, false)
 	outputStr := string(output)
 
-	// Check that thinking block is removed
+	// Both parts should be present (thinking blocks kept for non-Claude)
 	parts := gjson.Get(outputStr, "request.contents.0.parts").Array()
-	if len(parts) != 1 {
-		t.Fatalf("Expected 1 part (thinking removed), got %d", len(parts))
+	if len(parts) != 2 {
+		t.Fatalf("Expected 2 parts (thinking kept for Gemini), got %d", len(parts))
 	}
 
-	// Only text part should remain
-	if parts[0].Get("thought").Bool() {
-		t.Error("Thinking block should be removed for Gemini")
-	}
-	if parts[0].Get("text").String() != "Here is my response" {
-		t.Errorf("Expected text 'Here is my response', got '%s'", parts[0].Get("text").String())
+	// Thinking block should have skip sentinel
+	expectedSig := "skip_thought_signature_validator"
+	sig := parts[0].Get("thoughtSignature").String()
+	if sig != expectedSig {
+		t.Errorf("Expected thinking block to have skip sentinel '%s', got '%s'", expectedSig, sig)
 	}
 }
 

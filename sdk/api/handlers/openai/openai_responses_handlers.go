@@ -186,7 +186,7 @@ func (h *OpenAIResponsesAPIHandler) handleNonStreamingResponseViaChat(c *gin.Con
 	}
 	var param any
 	converted := responsesconverter.ConvertOpenAIChatCompletionsResponseToOpenAIResponsesNonStream(cliCtx, modelName, originalResponsesJSON, originalResponsesJSON, resp, &param)
-	if converted == "" {
+	if len(converted) == 0 {
 		h.WriteErrorResponse(c, &interfaces.ErrorMessage{
 			StatusCode: http.StatusInternalServerError,
 			Error:      fmt.Errorf("failed to convert chat completion response to responses format"),
@@ -371,7 +371,7 @@ func (h *OpenAIResponsesAPIHandler) forwardResponsesStream(c *gin.Context, flush
 func writeChatAsResponsesChunk(c *gin.Context, ctx context.Context, modelName string, originalResponsesJSON, chunk []byte, param *any) {
 	outputs := responsesconverter.ConvertOpenAIChatCompletionsResponseToOpenAIResponses(ctx, modelName, originalResponsesJSON, originalResponsesJSON, chunk, param)
 	for _, out := range outputs {
-		if out == "" {
+		if len(out) == 0 {
 			continue
 		}
 		if bytes.HasPrefix([]byte(out), []byte("event:")) {
@@ -387,7 +387,7 @@ func (h *OpenAIResponsesAPIHandler) forwardChatAsResponsesStream(c *gin.Context,
 		WriteChunk: func(chunk []byte) {
 			outputs := responsesconverter.ConvertOpenAIChatCompletionsResponseToOpenAIResponses(ctx, modelName, originalResponsesJSON, originalResponsesJSON, chunk, param)
 			for _, out := range outputs {
-				if out == "" {
+				if len(out) == 0 {
 					continue
 				}
 				if bytes.HasPrefix([]byte(out), []byte("event:")) {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	common "github.com/shariqriazz/modelgate/internal/translator/common"
 )
 
 type oaiToResponsesState struct {
@@ -51,7 +52,7 @@ func emitRespEvent(event string, payload string) string {
 
 // ConvertOpenAIChatCompletionsResponseToOpenAIResponses converts OpenAI Chat Completions streaming chunks
 // to OpenAI Responses SSE events (response.*).
-func ConvertOpenAIChatCompletionsResponseToOpenAIResponses(ctx context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) []string {
+func ConvertOpenAIChatCompletionsResponseToOpenAIResponses(ctx context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) [][]byte {
 	if *param == nil {
 		*param = &oaiToResponsesState{
 			FuncArgsBuf:     make(map[int]*strings.Builder),
@@ -73,19 +74,19 @@ func ConvertOpenAIChatCompletionsResponseToOpenAIResponses(ctx context.Context, 
 
 	rawJSON = bytes.TrimSpace(rawJSON)
 	if len(rawJSON) == 0 {
-		return []string{}
+		return [][]byte{}
 	}
 	if bytes.Equal(rawJSON, []byte("[DONE]")) {
-		return []string{}
+		return [][]byte{}
 	}
 
 	root := gjson.ParseBytes(rawJSON)
 	obj := root.Get("object")
 	if obj.Exists() && obj.String() != "" && obj.String() != "chat.completion.chunk" {
-		return []string{}
+		return [][]byte{}
 	}
 	if !root.Get("choices").Exists() || !root.Get("choices").IsArray() {
-		return []string{}
+		return [][]byte{}
 	}
 
 	if usage := root.Get("usage"); usage.Exists() {
@@ -566,12 +567,12 @@ func ConvertOpenAIChatCompletionsResponseToOpenAIResponses(ctx context.Context, 
 		})
 	}
 
-	return out
+	return common.StringsToBytes(out)
 }
 
 // ConvertOpenAIChatCompletionsResponseToOpenAIResponsesNonStream builds a single Responses JSON
 // from a non-streaming OpenAI Chat Completions response.
-func ConvertOpenAIChatCompletionsResponseToOpenAIResponsesNonStream(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) string {
+func ConvertOpenAIChatCompletionsResponseToOpenAIResponsesNonStream(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) []byte {
 	root := gjson.ParseBytes(rawJSON)
 
 	// Basic response scaffold
@@ -744,5 +745,5 @@ func ConvertOpenAIChatCompletionsResponseToOpenAIResponsesNonStream(_ context.Co
 		}
 	}
 
-	return resp
+	return []byte(resp)
 }

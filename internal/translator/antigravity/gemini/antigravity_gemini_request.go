@@ -7,6 +7,7 @@ package gemini
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/shariqriazz/modelgate/internal/translator/gemini/common"
 	"github.com/shariqriazz/modelgate/internal/util"
@@ -16,27 +17,11 @@ import (
 )
 
 // ConvertGeminiRequestToAntigravity parses and transforms a Gemini CLI API request into Gemini API format.
-// It extracts the model name, system instruction, message contents, and tool declarations
-// from the raw JSON request and returns them in the format expected by the Gemini API.
-// The function performs the following transformations:
-// 1. Extracts the model information from the request
-// 2. Restructures the JSON to match Gemini API format
-// 3. Converts system instructions to the expected format
-// 4. Fixes CLI tool response format and grouping
-//
-// Parameters:
-//   - modelName: The name of the model to use for the request (unused in current implementation)
-//   - rawJSON: The raw JSON request data from the Gemini CLI API
-//   - stream: A boolean indicating if the request is for a streaming response (unused in current implementation)
-//
-// Returns:
-//   - []byte: The transformed request data in Gemini API format
-func ConvertGeminiRequestToAntigravity(_ string, inputRawJSON []byte, _ bool) []byte {
+func ConvertGeminiRequestToAntigravity(modelName string, inputRawJSON []byte, _ bool) []byte {
 	rawJSON := inputRawJSON
-	template := ""
-	template = `{"project":"","request":{},"model":""}`
+	template := `{"project":"","request":{},"model":""}`
 	template, _ = sjson.SetRaw(template, "request", string(rawJSON))
-	template, _ = sjson.Set(template, "model", gjson.Get(template, "request.model").String())
+	template, _ = sjson.Set(template, "model", modelName)
 	template, _ = sjson.Delete(template, "request.model")
 
 	template, errFixCLIToolResponse := fixCLIToolResponse(template)
@@ -96,37 +81,63 @@ func ConvertGeminiRequestToAntigravity(_ string, inputRawJSON []byte, _ bool) []
 		}
 	}
 
-	// Gemini-specific handling: add skip_thought_signature_validator to functionCall parts
-	// and remove thinking blocks entirely (Gemini doesn't need to preserve them)
-	const skipSentinel = "skip_thought_signature_validator"
+	// Gemini-specific handling for non-Claude models:
+	// - Add skip_thought_signature_validator to functionCall parts so upstream can bypass signature validation.
+	// - Also mark thinking parts with the same sentinel when present (keep parts; only annotate them).
+	if !strings.Contains(modelName, "claude") {
+		const skipSentinel = "skip_thought_signature_validator"
 
-	gjson.GetBytes(rawJSON, "request.contents").ForEach(func(contentIdx, content gjson.Result) bool {
-		if content.Get("role").String() == "model" {
-			// First pass: collect indices of thinking parts to remove
-			var thinkingIndicesToRemove []int64
-			content.Get("parts").ForEach(func(partIdx, part gjson.Result) bool {
-				// Mark thinking blocks for removal
-				if part.Get("thought").Bool() {
-					thinkingIndicesToRemove = append(thinkingIndicesToRemove, partIdx.Int())
-				}
-				// Add skip sentinel to functionCall parts
-				if part.Get("functionCall").Exists() {
-					existingSig := part.Get("thoughtSignature").String()
-					if existingSig == "" || len(existingSig) < 50 {
-						rawJSON, _ = sjson.SetBytes(rawJSON, fmt.Sprintf("request.contents.%d.parts.%d.thoughtSignature", contentIdx.Int(), partIdx.Int()), skipSentinel)
+		gjson.GetBytes(rawJSON, "request.contents").ForEach(func(contentIdx, content gjson.Result) bool {
+			if content.Get("role").String() == "model" {
+				var thinkingIndicesToSkipSignature []int64
+				content.Get("parts").ForEach(func(partIdx, part gjson.Result) bool {
+					if part.Get("thought").Bool() {
+						thinkingIndicesToSkipSignature = append(thinkingIndicesToSkipSignature, partIdx.Int())
 					}
-				}
-				return true
-			})
+					if part.Get("functionCall").Exists() {
+						existingSig := part.Get("thoughtSignature").String()
+						if existingSig == "" || len(existingSig) < 50 {
+							rawJSON, _ = sjson.SetBytes(rawJSON, fmt.Sprintf("request.contents.%d.parts.%d.thoughtSignature", contentIdx.Int(), partIdx.Int()), skipSentinel)
+						}
+					}
+					return true
+				})
 
-			// Remove thinking blocks in reverse order to preserve indices
-			for i := len(thinkingIndicesToRemove) - 1; i >= 0; i-- {
-				idx := thinkingIndicesToRemove[i]
-				rawJSON, _ = sjson.DeleteBytes(rawJSON, fmt.Sprintf("request.contents.%d.parts.%d", contentIdx.Int(), idx))
+				for i := len(thinkingIndicesToSkipSignature) - 1; i >= 0; i-- {
+					idx := thinkingIndicesToSkipSignature[i]
+					rawJSON, _ = sjson.SetBytes(rawJSON, fmt.Sprintf("request.contents.%d.parts.%d.thoughtSignature", contentIdx.Int(), idx), skipSentinel)
+				}
 			}
-		}
-		return true
-	})
+			return true
+		})
+	} else {
+		// Claude-specific: remove thinking blocks entirely and add skip sentinel to functionCall parts
+		const skipSentinel = "skip_thought_signature_validator"
+
+		gjson.GetBytes(rawJSON, "request.contents").ForEach(func(contentIdx, content gjson.Result) bool {
+			if content.Get("role").String() == "model" {
+				var thinkingIndicesToRemove []int64
+				content.Get("parts").ForEach(func(partIdx, part gjson.Result) bool {
+					if part.Get("thought").Bool() {
+						thinkingIndicesToRemove = append(thinkingIndicesToRemove, partIdx.Int())
+					}
+					if part.Get("functionCall").Exists() {
+						existingSig := part.Get("thoughtSignature").String()
+						if existingSig == "" || len(existingSig) < 50 {
+							rawJSON, _ = sjson.SetBytes(rawJSON, fmt.Sprintf("request.contents.%d.parts.%d.thoughtSignature", contentIdx.Int(), partIdx.Int()), skipSentinel)
+						}
+					}
+					return true
+				})
+
+				for i := len(thinkingIndicesToRemove) - 1; i >= 0; i-- {
+					idx := thinkingIndicesToRemove[i]
+					rawJSON, _ = sjson.DeleteBytes(rawJSON, fmt.Sprintf("request.contents.%d.parts.%d", contentIdx.Int(), idx))
+				}
+			}
+			return true
+		})
+	}
 
 	return common.AttachDefaultSafetySettings(rawJSON, "request.safetySettings")
 }
@@ -134,20 +145,31 @@ func ConvertGeminiRequestToAntigravity(_ string, inputRawJSON []byte, _ bool) []
 // FunctionCallGroup represents a group of function calls and their responses
 type FunctionCallGroup struct {
 	ResponsesNeeded int
+	CallNames       []string // ordered function call names for backfilling empty response names
 }
 
 // parseFunctionResponseRaw attempts to normalize a function response part into a JSON object string.
 // Falls back to a minimal "functionResponse" object when parsing fails.
-func parseFunctionResponseRaw(response gjson.Result) string {
+// fallbackName is used when the response's own name is empty.
+func parseFunctionResponseRaw(response gjson.Result, fallbackName string) string {
 	if response.IsObject() && gjson.Valid(response.Raw) {
-		return response.Raw
+		raw := response.Raw
+		name := response.Get("functionResponse.name").String()
+		if strings.TrimSpace(name) == "" && fallbackName != "" {
+			raw, _ = sjson.Set(raw, "functionResponse.name", fallbackName)
+		}
+		return raw
 	}
 
 	log.Debugf("parse function response failed, using fallback")
 	funcResp := response.Get("functionResponse")
 	if funcResp.Exists() {
 		fr := `{"functionResponse":{"name":"","response":{"result":""}}}`
-		fr, _ = sjson.Set(fr, "functionResponse.name", funcResp.Get("name").String())
+		name := funcResp.Get("name").String()
+		if strings.TrimSpace(name) == "" {
+			name = fallbackName
+		}
+		fr, _ = sjson.Set(fr, "functionResponse.name", name)
 		fr, _ = sjson.Set(fr, "functionResponse.response.result", funcResp.Get("response").String())
 		if id := funcResp.Get("id").String(); id != "" {
 			fr, _ = sjson.Set(fr, "functionResponse.id", id)
@@ -155,46 +177,32 @@ func parseFunctionResponseRaw(response gjson.Result) string {
 		return fr
 	}
 
-	fr := `{"functionResponse":{"name":"unknown","response":{"result":""}}}`
+	useName := fallbackName
+	if useName == "" {
+		useName = "unknown"
+	}
+	fr := `{"functionResponse":{"name":"","response":{"result":""}}}`
+	fr, _ = sjson.Set(fr, "functionResponse.name", useName)
 	fr, _ = sjson.Set(fr, "functionResponse.response.result", response.String())
 	return fr
 }
 
 // fixCLIToolResponse performs sophisticated tool response format conversion and grouping.
-// This function transforms the CLI tool response format by intelligently grouping function calls
-// with their corresponding responses, ensuring proper conversation flow and API compatibility.
-// It converts from a linear format (1.json) to a grouped format (2.json) where function calls
-// and their responses are properly associated and structured.
-//
-// Parameters:
-//   - input: The input JSON string to be processed
-//
-// Returns:
-//   - string: The processed JSON string with grouped function calls and responses
-//   - error: An error if the processing fails
 func fixCLIToolResponse(input string) (string, error) {
-	// Parse the input JSON to extract the conversation structure
 	parsed := gjson.Parse(input)
-
-	// Extract the contents array which contains the conversation messages
 	contents := parsed.Get("request.contents")
 	if !contents.Exists() {
-		// log.Debugf(input)
 		return input, fmt.Errorf("contents not found in input")
 	}
 
-	// Initialize data structures for processing and grouping
 	contentsWrapper := `{"contents":[]}`
-	var pendingGroups []*FunctionCallGroup // Groups awaiting completion with responses
-	var collectedResponses []gjson.Result  // Standalone responses to be matched
+	var pendingGroups []*FunctionCallGroup
+	var collectedResponses []gjson.Result
 
-	// Process each content object in the conversation
-	// This iterates through messages and groups function calls with their responses
 	contents.ForEach(func(key, value gjson.Result) bool {
 		role := value.Get("role").String()
 		parts := value.Get("parts")
 
-		// Check if this content has function responses
 		var responsePartsInThisContent []gjson.Result
 		parts.ForEach(func(_, part gjson.Result) bool {
 			if part.Get("functionResponse").Exists() {
@@ -203,65 +211,59 @@ func fixCLIToolResponse(input string) (string, error) {
 			return true
 		})
 
-		// If this content has function responses, collect them
 		if len(responsePartsInThisContent) > 0 {
 			collectedResponses = append(collectedResponses, responsePartsInThisContent...)
 
-			// Check if any pending groups can be satisfied
-			for i := len(pendingGroups) - 1; i >= 0; i-- {
-				group := pendingGroups[i]
-				if len(collectedResponses) >= group.ResponsesNeeded {
-					// Take the needed responses for this group
-					groupResponses := collectedResponses[:group.ResponsesNeeded]
-					collectedResponses = collectedResponses[group.ResponsesNeeded:]
+			// Check if pending groups can be satisfied (FIFO: oldest group first)
+			for len(pendingGroups) > 0 && len(collectedResponses) >= pendingGroups[0].ResponsesNeeded {
+				group := pendingGroups[0]
+				pendingGroups = pendingGroups[1:]
 
-					// Create merged function response content
-					functionResponseContent := `{"parts":[],"role":"function"}`
-					for _, response := range groupResponses {
-						partRaw := parseFunctionResponseRaw(response)
-						if partRaw != "" {
-							functionResponseContent, _ = sjson.SetRaw(functionResponseContent, "parts.-1", partRaw)
-						}
+				groupResponses := collectedResponses[:group.ResponsesNeeded]
+				collectedResponses = collectedResponses[group.ResponsesNeeded:]
+
+				functionResponseContent := `{"parts":[],"role":"function"}`
+				for ri, response := range groupResponses {
+					fallbackName := ""
+					if ri < len(group.CallNames) {
+						fallbackName = group.CallNames[ri]
 					}
-
-					if gjson.Get(functionResponseContent, "parts.#").Int() > 0 {
-						contentsWrapper, _ = sjson.SetRaw(contentsWrapper, "contents.-1", functionResponseContent)
+					partRaw := parseFunctionResponseRaw(response, fallbackName)
+					if partRaw != "" {
+						functionResponseContent, _ = sjson.SetRaw(functionResponseContent, "parts.-1", partRaw)
 					}
+				}
 
-					// Remove this group as it's been satisfied
-					pendingGroups = append(pendingGroups[:i], pendingGroups[i+1:]...)
-					break
+				if gjson.Get(functionResponseContent, "parts.#").Int() > 0 {
+					contentsWrapper, _ = sjson.SetRaw(contentsWrapper, "contents.-1", functionResponseContent)
 				}
 			}
 
-			return true // Skip adding this content, responses are merged
+			return true
 		}
 
-		// If this is a model with function calls, create a new group
 		if role == "model" {
-			functionCallsCount := 0
+			var callNames []string
 			parts.ForEach(func(_, part gjson.Result) bool {
 				if part.Get("functionCall").Exists() {
-					functionCallsCount++
+					callNames = append(callNames, part.Get("functionCall.name").String())
 				}
 				return true
 			})
 
-			if functionCallsCount > 0 {
-				// Add the model content
+			if len(callNames) > 0 {
 				if !value.IsObject() {
 					log.Warnf("failed to parse model content")
 					return true
 				}
 				contentsWrapper, _ = sjson.SetRaw(contentsWrapper, "contents.-1", value.Raw)
 
-				// Create a new group for tracking responses
 				group := &FunctionCallGroup{
-					ResponsesNeeded: functionCallsCount,
+					ResponsesNeeded: len(callNames),
+					CallNames:       callNames,
 				}
 				pendingGroups = append(pendingGroups, group)
 			} else {
-				// Regular model content without function calls
 				if !value.IsObject() {
 					log.Warnf("failed to parse content")
 					return true
@@ -269,7 +271,6 @@ func fixCLIToolResponse(input string) (string, error) {
 				contentsWrapper, _ = sjson.SetRaw(contentsWrapper, "contents.-1", value.Raw)
 			}
 		} else {
-			// Non-model content (user, etc.)
 			if !value.IsObject() {
 				log.Warnf("failed to parse content")
 				return true
@@ -287,8 +288,12 @@ func fixCLIToolResponse(input string) (string, error) {
 			collectedResponses = collectedResponses[group.ResponsesNeeded:]
 
 			functionResponseContent := `{"parts":[],"role":"function"}`
-			for _, response := range groupResponses {
-				partRaw := parseFunctionResponseRaw(response)
+			for ri, response := range groupResponses {
+				fallbackName := ""
+				if ri < len(group.CallNames) {
+					fallbackName = group.CallNames[ri]
+				}
+				partRaw := parseFunctionResponseRaw(response, fallbackName)
 				if partRaw != "" {
 					functionResponseContent, _ = sjson.SetRaw(functionResponseContent, "parts.-1", partRaw)
 				}
@@ -300,7 +305,6 @@ func fixCLIToolResponse(input string) (string, error) {
 		}
 	}
 
-	// Update the original JSON with the new contents
 	result := input
 	result, _ = sjson.SetRaw(result, "request.contents", gjson.Get(contentsWrapper, "contents").Raw)
 

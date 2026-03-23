@@ -44,6 +44,8 @@ type Options struct {
 type Response struct {
 	// Payload is the provider response in the executor format.
 	Payload []byte
+	// Headers carries the upstream HTTP response headers (optional).
+	Headers http.Header
 	// Metadata exposes optional structured data for translators.
 	Metadata map[string]any
 }

@@ -8,6 +8,22 @@ import (
 	"strings"
 )
 
+// AsyncPrompt runs a prompt function in a goroutine and returns channels for
+// the result. This prevents the prompt from blocking the callback server select loop.
+func AsyncPrompt(promptFn func(string) (string, error), message string) (<-chan string, <-chan error) {
+	inputCh := make(chan string, 1)
+	errCh := make(chan error, 1)
+	go func() {
+		input, err := promptFn(message)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		inputCh <- input
+	}()
+	return inputCh, errCh
+}
+
 // GenerateRandomState generates a cryptographically secure random state parameter
 // for OAuth2 flows to prevent CSRF attacks.
 //

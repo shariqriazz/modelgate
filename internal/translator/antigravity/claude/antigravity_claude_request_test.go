@@ -75,13 +75,15 @@ func TestConvertClaudeRequestToAntigravity_RoleMapping(t *testing.T) {
 func TestConvertClaudeRequestToAntigravity_ThinkingBlocks(t *testing.T) {
 	// Valid signature must be at least 50 characters
 	validSignature := "abc123validSignature1234567890123456789012345678901234567890"
+	// Signatures are now prefixed with model group: "claude#<sig>"
+	prefixedSignature := "claude#" + validSignature
 	inputJSON := []byte(`{
 		"model": "claude-sonnet-4-5-thinking",
 		"messages": [
 			{
 				"role": "assistant",
 				"content": [
-					{"type": "thinking", "thinking": "Let me think...", "signature": "` + validSignature + `"},
+					{"type": "thinking", "thinking": "Let me think...", "signature": "` + prefixedSignature + `"},
 					{"type": "text", "text": "Answer"}
 				]
 			}
@@ -227,13 +229,14 @@ func TestConvertClaudeRequestToAntigravity_ToolUse(t *testing.T) {
 
 func TestConvertClaudeRequestToAntigravity_ToolUse_WithSignature(t *testing.T) {
 	validSignature := "abc123validSignature1234567890123456789012345678901234567890"
+	prefixedSignature := "claude#" + validSignature
 	inputJSON := []byte(`{
 		"model": "claude-sonnet-4-5-thinking",
 		"messages": [
 			{
 				"role": "assistant",
 				"content": [
-					{"type": "thinking", "thinking": "Let me think...", "signature": "` + validSignature + `"},
+					{"type": "thinking", "thinking": "Let me think...", "signature": "` + prefixedSignature + `"},
 					{
 						"type": "tool_use",
 						"id": "call_123",
@@ -261,6 +264,7 @@ func TestConvertClaudeRequestToAntigravity_ToolUse_WithSignature(t *testing.T) {
 func TestConvertClaudeRequestToAntigravity_ReorderThinking(t *testing.T) {
 	// Case: text block followed by thinking block -> should be reordered to thinking first
 	validSignature := "abc123validSignature1234567890123456789012345678901234567890"
+	prefixedSignature := "claude#" + validSignature
 	inputJSON := []byte(`{
 		"model": "claude-sonnet-4-5-thinking",
 		"messages": [
@@ -268,7 +272,7 @@ func TestConvertClaudeRequestToAntigravity_ReorderThinking(t *testing.T) {
 				"role": "assistant",
 				"content": [
 					{"type": "text", "text": "Here is the plan."},
-					{"type": "thinking", "thinking": "Planning...", "signature": "` + validSignature + `"}
+					{"type": "thinking", "thinking": "Planning...", "signature": "` + prefixedSignature + `"}
 				]
 			}
 		]
@@ -343,8 +347,8 @@ func TestConvertClaudeRequestToAntigravity_ThinkingConfig(t *testing.T) {
 		if thinkingConfig.Get("thinkingBudget").Int() != 8000 {
 			t.Errorf("Expected thinkingBudget 8000, got %d", thinkingConfig.Get("thinkingBudget").Int())
 		}
-		if !thinkingConfig.Get("include_thoughts").Bool() {
-			t.Error("include_thoughts should be true")
+		if !thinkingConfig.Get("includeThoughts").Bool() {
+			t.Error("includeThoughts should be true")
 		}
 	} else {
 		t.Log("thinkingConfig not present - model may not be registered in test registry")
@@ -379,8 +383,8 @@ func TestConvertClaudeRequestToAntigravity_ImageContent(t *testing.T) {
 	if !inlineData.Exists() {
 		t.Error("inlineData should exist")
 	}
-	if inlineData.Get("mime_type").String() != "image/png" {
-		t.Error("mime_type mismatch")
+	if inlineData.Get("mimeType").String() != "image/png" {
+		t.Error("mimeType mismatch")
 	}
 	if !strings.Contains(inlineData.Get("data").String(), "iVBORw0KGgo") {
 		t.Error("data mismatch")
@@ -471,7 +475,7 @@ func TestConvertClaudeRequestToAntigravity_TrailingSignedThinking_Kept(t *testin
 				"role": "assistant",
 				"content": [
 					{"type": "text", "text": "Here is my answer"},
-					{"type": "thinking", "thinking": "Valid thinking...", "signature": "abc123validSignature1234567890123456789012345678901234567890"}
+					{"type": "thinking", "thinking": "Valid thinking...", "signature": "claude#abc123validSignature1234567890123456789012345678901234567890"}
 				]
 			}
 		]

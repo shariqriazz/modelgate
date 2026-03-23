@@ -30,7 +30,7 @@ import (
 //
 // Returns:
 //   - []string: The transformed request data in Gemini API format
-func ConvertAntigravityResponseToGemini(ctx context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) []string {
+func ConvertAntigravityResponseToGemini(ctx context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) [][]byte {
 	if bytes.HasPrefix(rawJSON, []byte("data:")) {
 		rawJSON = bytes.TrimSpace(rawJSON[5:])
 	}
@@ -41,6 +41,7 @@ func ConvertAntigravityResponseToGemini(ctx context.Context, _ string, originalR
 			responseResult := gjson.GetBytes(rawJSON, "response")
 			if responseResult.Exists() {
 				chunk = []byte(responseResult.Raw)
+				chunk = restoreUsageMetadata(chunk)
 			}
 		} else {
 			chunkTemplate := "[]"
@@ -56,9 +57,9 @@ func ConvertAntigravityResponseToGemini(ctx context.Context, _ string, originalR
 			}
 			chunk = []byte(chunkTemplate)
 		}
-		return []string{string(chunk)}
+		return [][]byte{chunk}
 	}
-	return []string{}
+	return [][]byte{}
 }
 
 // ConvertAntigravityResponseToGeminiNonStream converts a non-streaming Gemini CLI request to a non-streaming Gemini response.
@@ -73,14 +74,27 @@ func ConvertAntigravityResponseToGemini(ctx context.Context, _ string, originalR
 //
 // Returns:
 //   - string: A Gemini-compatible JSON response containing the response data
-func ConvertAntigravityResponseToGeminiNonStream(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) string {
+func ConvertAntigravityResponseToGeminiNonStream(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) []byte {
 	responseResult := gjson.GetBytes(rawJSON, "response")
 	if responseResult.Exists() {
-		return responseResult.Raw
+		chunk := restoreUsageMetadata([]byte(responseResult.Raw))
+		return chunk
 	}
-	return string(rawJSON)
+	return rawJSON
 }
 
-func GeminiTokenCount(ctx context.Context, count int64) string {
-	return fmt.Sprintf(`{"totalTokens":%d,"promptTokensDetails":[{"modality":"TEXT","tokenCount":%d}]}`, count, count)
+func GeminiTokenCount(ctx context.Context, count int64) []byte {
+	return []byte(fmt.Sprintf(`{"totalTokens":%d,"promptTokensDetails":[{"modality":"TEXT","tokenCount":%d}]}`, count, count))
+}
+
+// restoreUsageMetadata renames cpaUsageMetadata back to usageMetadata.
+// The executor renames usageMetadata to cpaUsageMetadata in non-terminal chunks
+// to preserve usage data while hiding it from clients that don't expect it.
+// When returning standard Gemini API format, we must restore the original name.
+func restoreUsageMetadata(chunk []byte) []byte {
+	if cpaUsage := gjson.GetBytes(chunk, "cpaUsageMetadata"); cpaUsage.Exists() {
+		chunk, _ = sjson.SetRawBytes(chunk, "usageMetadata", []byte(cpaUsage.Raw))
+		chunk, _ = sjson.DeleteBytes(chunk, "cpaUsageMetadata")
+	}
+	return chunk
 }

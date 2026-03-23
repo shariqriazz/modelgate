@@ -283,7 +283,7 @@ func convertResponsesObjectToChatCompletion(ctx context.Context, modelName strin
 	}
 	var param any
 	converted := codexconverter.ConvertCodexResponseToOpenAINonStream(ctx, modelName, originalChatJSON, responsesRequestJSON, wrapped, &param)
-	if converted == "" {
+	if len(converted) == 0 {
 		return nil
 	}
 	return []byte(converted)
@@ -304,7 +304,7 @@ func wrapResponsesPayloadAsCompleted(payload []byte) []byte {
 func writeConvertedResponsesChunk(c *gin.Context, ctx context.Context, modelName string, originalChatJSON, responsesRequestJSON, chunk []byte, param *any) {
 	outputs := codexconverter.ConvertCodexResponseToOpenAI(ctx, modelName, originalChatJSON, responsesRequestJSON, chunk, param)
 	for _, out := range outputs {
-		if out == "" {
+		if len(out) == 0 {
 			continue
 		}
 		_, _ = fmt.Fprintf(c.Writer, "data: %s\n\n", out)
@@ -316,7 +316,7 @@ func (h *OpenAIAPIHandler) forwardResponsesAsChatStream(c *gin.Context, flusher 
 		WriteChunk: func(chunk []byte) {
 			outputs := codexconverter.ConvertCodexResponseToOpenAI(ctx, modelName, originalChatJSON, responsesRequestJSON, chunk, param)
 			for _, out := range outputs {
-				if out == "" {
+				if len(out) == 0 {
 					continue
 				}
 				_, _ = fmt.Fprintf(c.Writer, "data: %s\n\n", out)

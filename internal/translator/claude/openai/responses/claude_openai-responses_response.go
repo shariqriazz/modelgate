@@ -10,6 +10,7 @@ import (
 
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	common "github.com/shariqriazz/modelgate/internal/translator/common"
 )
 
 type claudeToResponsesState struct {
@@ -55,7 +56,7 @@ func emitEvent(event string, payload string) string {
 }
 
 // ConvertClaudeResponseToOpenAIResponses converts Claude SSE to OpenAI Responses SSE events.
-func ConvertClaudeResponseToOpenAIResponses(ctx context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) []string {
+func ConvertClaudeResponseToOpenAIResponses(ctx context.Context, modelName string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) [][]byte {
 	if *param == nil {
 		*param = &claudeToResponsesState{FuncArgsBuf: make(map[int]*strings.Builder), FuncNames: make(map[int]string), FuncCallIDs: make(map[int]string)}
 	}
@@ -63,7 +64,7 @@ func ConvertClaudeResponseToOpenAIResponses(ctx context.Context, modelName strin
 
 	// Expect `data: {..}` from Claude clients
 	if !bytes.HasPrefix(rawJSON, dataTag) {
-		return []string{}
+		return [][]byte{}
 	}
 	rawJSON = bytes.TrimSpace(rawJSON[5:])
 	root := gjson.ParseBytes(rawJSON)
@@ -120,7 +121,7 @@ func ConvertClaudeResponseToOpenAIResponses(ctx context.Context, modelName strin
 	case "content_block_start":
 		cb := root.Get("content_block")
 		if !cb.Exists() {
-			return out
+			return common.StringsToBytes(out)
 		}
 		idx := int(root.Get("index").Int())
 		typ := cb.Get("type").String()
@@ -176,7 +177,7 @@ func ConvertClaudeResponseToOpenAIResponses(ctx context.Context, modelName strin
 	case "content_block_delta":
 		d := root.Get("delta")
 		if !d.Exists() {
-			return out
+			return common.StringsToBytes(out)
 		}
 		dt := d.Get("type").String()
 		if dt == "text_delta" {
@@ -428,11 +429,11 @@ func ConvertClaudeResponseToOpenAIResponses(ctx context.Context, modelName strin
 		out = append(out, emitEvent("response.completed", completed))
 	}
 
-	return out
+	return common.StringsToBytes(out)
 }
 
 // ConvertClaudeResponseToOpenAIResponsesNonStream aggregates Claude SSE into a single OpenAI Responses JSON.
-func ConvertClaudeResponseToOpenAIResponsesNonStream(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) string {
+func ConvertClaudeResponseToOpenAIResponsesNonStream(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) []byte {
 	// Aggregate Claude SSE lines into a single OpenAI Responses JSON (non-stream)
 	// We follow the same aggregation logic as the streaming variant but produce
 	// one final object matching docs/out.json structure.
@@ -684,5 +685,5 @@ func ConvertClaudeResponseToOpenAIResponsesNonStream(_ context.Context, _ string
 		}
 	}
 
-	return out
+	return []byte(out)
 }

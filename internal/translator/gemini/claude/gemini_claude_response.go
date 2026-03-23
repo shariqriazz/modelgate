@@ -46,7 +46,7 @@ var toolUseIDCounter uint64
 //
 // Returns:
 //   - []string: A slice of strings, each containing a Claude-compatible JSON response.
-func ConvertGeminiResponseToClaude(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) []string {
+func ConvertGeminiResponseToClaude(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, param *any) [][]byte {
 	if *param == nil {
 		*param = &Params{
 			IsGlAPIKey:       false,
@@ -59,11 +59,11 @@ func ConvertGeminiResponseToClaude(_ context.Context, _ string, originalRequestR
 	if bytes.Equal(rawJSON, []byte("[DONE]")) {
 		// Only send message_stop if we have actually output content
 		if (*param).(*Params).HasContent {
-			return []string{
-				"event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n\n",
+			return [][]byte{[]byte(
+				"event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n\n"),
 			}
 		}
-		return []string{}
+		return [][]byte{}
 	}
 
 	// Track whether tools are being used in this response chunk
@@ -264,7 +264,7 @@ func ConvertGeminiResponseToClaude(_ context.Context, _ string, originalRequestR
 		}
 	}
 
-	return []string{output}
+	return [][]byte{[]byte(output)}
 }
 
 // ConvertGeminiResponseToClaudeNonStream converts a non-streaming Gemini response to a non-streaming Claude response.
@@ -277,7 +277,7 @@ func ConvertGeminiResponseToClaude(_ context.Context, _ string, originalRequestR
 //
 // Returns:
 //   - string: A Claude-compatible JSON response.
-func ConvertGeminiResponseToClaudeNonStream(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) string {
+func ConvertGeminiResponseToClaudeNonStream(_ context.Context, _ string, originalRequestRawJSON, requestRawJSON, rawJSON []byte, _ *any) []byte {
 	_ = originalRequestRawJSON
 	_ = requestRawJSON
 
@@ -376,9 +376,9 @@ func ConvertGeminiResponseToClaudeNonStream(_ context.Context, _ string, origina
 		out, _ = sjson.Delete(out, "usage")
 	}
 
-	return out
+	return []byte(out)
 }
 
-func ClaudeTokenCount(ctx context.Context, count int64) string {
-	return fmt.Sprintf(`{"input_tokens":%d}`, count)
+func ClaudeTokenCount(ctx context.Context, count int64) []byte {
+	return []byte(fmt.Sprintf(`{"input_tokens":%d}`, count))
 }
