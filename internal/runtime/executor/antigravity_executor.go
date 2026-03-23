@@ -1210,10 +1210,10 @@ func (e *AntigravityExecutor) CountTokens(ctx context.Context, auth *modelgateau
 		if errReq != nil {
 			return modelgateexecutor.Response{}, errReq
 		}
+		httpReq.Close = true
 		httpReq.Header.Set("Content-Type", "application/json")
 		httpReq.Header.Set("Authorization", "Bearer "+token)
 		httpReq.Header.Set("User-Agent", resolveUserAgent(auth))
-		httpReq.Header.Set("Accept", "application/json")
 		if host := resolveHost(base); host != "" {
 			httpReq.Host = host
 		}
@@ -1802,9 +1802,9 @@ func antigravityBaseURLFallbackOrder(auth *modelgateauth.Auth) []string {
 		return []string{base}
 	}
 	return []string{
-		antigravitySandboxBaseURLDaily,
 		antigravityBaseURLDaily,
-		antigravityBaseURLProd,
+		antigravitySandboxBaseURLDaily,
+		// antigravityBaseURLProd,
 	}
 }
 
@@ -1948,67 +1948,6 @@ func alias2ModelName(modelName string) string {
 	default:
 		return modelName
 	}
-}
-
-// normalizeAntigravityThinking clamps or removes thinking config based on model support.
-// For Claude models, it additionally ensures thinking budget < max_tokens.
-func normalizeAntigravityThinking(model string, payload []byte, isClaude bool) []byte {
-	payload = util.StripThinkingConfigIfUnsupported(model, payload)
-	if !util.ModelSupportsThinking(model) {
-		return payload
-	}
-	budget := gjson.GetBytes(payload, "request.generationConfig.thinkingConfig.thinkingBudget")
-	if !budget.Exists() {
-		return payload
-	}
-	raw := int(budget.Int())
-	normalized := util.NormalizeThinkingBudget(model, raw)
-
-	if isClaude {
-		effectiveMax, setDefaultMax := antigravityEffectiveMaxTokens(model, payload)
-		if effectiveMax > 0 && normalized >= effectiveMax {
-			normalized = effectiveMax - 1
-		}
-		minBudget := antigravityMinThinkingBudget(model)
-		if minBudget > 0 && normalized >= 0 && normalized < minBudget {
-			// Budget is below minimum, remove thinking config entirely
-			payload, _ = sjson.DeleteBytes(payload, "request.generationConfig.thinkingConfig")
-			return payload
-		}
-		if setDefaultMax {
-			if res, errSet := sjson.SetBytes(payload, "request.generationConfig.maxOutputTokens", effectiveMax); errSet == nil {
-				payload = res
-			}
-		}
-	}
-
-	updated, err := sjson.SetBytes(payload, "request.generationConfig.thinkingConfig.thinkingBudget", normalized)
-	if err != nil {
-		return payload
-	}
-	return updated
-}
-
-// antigravityEffectiveMaxTokens returns the max tokens to cap thinking:
-// prefer request-provided maxOutputTokens; otherwise fall back to model default.
-// The boolean indicates whether the value came from the model default (and thus should be written back).
-func antigravityEffectiveMaxTokens(model string, payload []byte) (max int, fromModel bool) {
-	if maxTok := gjson.GetBytes(payload, "request.generationConfig.maxOutputTokens"); maxTok.Exists() && maxTok.Int() > 0 {
-		return int(maxTok.Int()), false
-	}
-	if modelInfo := registry.GetGlobalRegistry().GetModelInfo(model, ""); modelInfo != nil && modelInfo.MaxCompletionTokens > 0 {
-		return modelInfo.MaxCompletionTokens, true
-	}
-	return 0, false
-}
-
-// antigravityMinThinkingBudget returns the minimum thinking budget for a model.
-// Falls back to -1 if no model info is found.
-func antigravityMinThinkingBudget(model string) int {
-	if modelInfo := registry.GetGlobalRegistry().GetModelInfo(model, ""); modelInfo != nil && modelInfo.Thinking != nil {
-		return modelInfo.Thinking.Min
-	}
-	return -1
 }
 
 // isBare429 checks if a 429 response is a transient rate limit (bare 429) vs real quota exhaustion.
